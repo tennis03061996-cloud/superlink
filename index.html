@@ -180,10 +180,12 @@
                     <input type="password" id="geminiApiKey" placeholder="API Keyを入力..." class="edit-input" style="width:200px;" oninput="localStorage.setItem('grandGeminiKey', this.value)">
                 </div>
                 <div id="gemini-chat-area" style="flex:1; overflow-y:auto; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:15px; margin-bottom:15px; display:flex; flex-direction:column; gap:10px;">
-                    <div style="text-align:left;"><span style="background:var(--panel); border:1px solid var(--border); padding:10px; border-radius:10px; display:inline-block; font-size:0.9rem;">こんにちは！APIキーを入力して、ファイル（画像やテキスト）もアップロードできますよ。</span></div>
+                    <div style="text-align:left;"><span style="background:var(--panel); border:1px solid var(--border); padding:10px; border-radius:10px; display:inline-block; font-size:0.9rem;">こんにちは！ファイルをアップロードして質問もできますよ。</span></div>
                 </div>
                 
-                <div id="gemini-file-list"></div> <div style="display:flex; gap:10px; align-items: flex-end;">
+                <div id="gemini-file-list"></div>
+                
+                <div style="display:flex; gap:10px; align-items: flex-end;">
                     <button class="btn btn-ghost" onclick="document.getElementById('ai-file-input').click()" style="padding:10px; border-radius:50%; width:45px; height:45px;">📎</button>
                     <input type="file" id="ai-file-input" style="display:none;" onchange="handleAiFile(event)">
                     <textarea id="geminiInput" class="edit-input" style="flex:1; height:45px; resize:none; padding-top:12px;" placeholder="Geminiに質問する..." onkeypress="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendGeminiChat(); }"></textarea>
@@ -221,13 +223,11 @@
 </div>
 
 <script>
-    /* ==========================================
-       1. 基本設定・データ管理
-    ========================================== */
+    /* --- 基本設定・データ --- */
     let data = JSON.parse(localStorage.getItem('grandHubData')) || [{ title: "初期グループ", color: "", subs: [{ title: "カテゴリ", color: "", subs: [{ title: "項目", color: "", links: [] }] }] }];
     let excelData = JSON.parse(localStorage.getItem('grandExcel')) || Array(10).fill().map(() => Array(10).fill(''));
     let tpls = JSON.parse(localStorage.getItem('grandTpls')) || [];
-    let attachedFile = null; // AIへの添付ファイル用
+    let attachedFile = null;
     let isEditMode = false;
     let currentFilter = 'all';
 
@@ -245,16 +245,11 @@
         document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.getElementById(id + '-panel').classList.add('active');
-        if(forceNavToLinks || id === 'links') {
-            document.querySelector('.nav-item[onclick*="links"]').classList.add('active');
-        } else if(event && event.currentTarget.classList.contains('nav-item')) {
-            event.currentTarget.classList.add('active');
-        }
+        if(forceNavToLinks || id === 'links') { document.querySelector('.nav-item[onclick*="links"]').classList.add('active'); } 
+        else if(event && event.currentTarget.classList.contains('nav-item')) { event.currentTarget.classList.add('active'); }
     }
 
-    /* ==========================================
-       2. リンク集 & ドラッグ移動
-    ========================================== */
+    /* --- リンク集 --- */
     function renderLinks() {
         const area = document.getElementById('main-link-area');
         const filterArea = document.getElementById('filter-container');
@@ -395,9 +390,7 @@
     function addLink(g,s,ss) { data[g].subs[s].subs[ss].links.push({name:"新規", url:"https://"}); renderLinks(); save(); }
     function del(type, g, s, ss, l) { if(!confirm("消去？")) return; if(type==='g') data.splice(g,1); else if(type==='s') data[g].subs.splice(s,1); else if(type==='ss') data[g].subs[s].subs.splice(ss,1); else if(type==='l') data[g].subs[s].subs[ss].links.splice(l,1); renderLinks(); save(); }
 
-    /* ==========================================
-       3. 表計算
-    ========================================== */
+    /* --- 表計算 --- */
     function renderExcel() {
         const table = document.getElementById('excelTable'); table.innerHTML = '';
         let head = '<tr><th></th>';
@@ -438,9 +431,7 @@
     function clearExcel() { if(confirm("消去？")) { excelData=Array(10).fill().map(()=>Array(10).fill('')); renderExcel(); saveExcel(); } }
     function saveExcel() { localStorage.setItem('grandExcel', JSON.stringify(excelData)); }
 
-    /* ==========================================
-       4. 文章比較
-    ========================================== */
+    /* --- 文章比較 --- */
     function executeHikaku() {
         const s1 = document.getElementById('ss1').value, s2 = document.getElementById('ss2').value;
         let mC = []; diffEngine(s1, s2, mC);
@@ -467,9 +458,7 @@
         }
     }
 
-    /* ==========================================
-       5. Gemini 司令室 (API連動 & ファイル添付)
-    ========================================== */
+    /* --- Gemini 司令室 --- */
     function handleAiFile(e) {
         const file = e.target.files[0];
         if(!file) return;
@@ -477,7 +466,6 @@
         const list = document.getElementById('gemini-file-list');
         list.innerHTML = `<div class="file-preview">📄 ${file.name} (${Math.round(file.size/1024)}KB) <button onclick="removeAttachedFile()" style="border:none; background:none; cursor:pointer;">❌</button></div>`;
     }
-    
     function removeAttachedFile() { attachedFile = null; document.getElementById('gemini-file-list').innerHTML = ''; document.getElementById('ai-file-input').value = ''; }
 
     async function sendGeminiChat() {
@@ -488,7 +476,6 @@
         if(!msg && !attachedFile) return;
         if(!key) { alert("APIキーを入力してください！"); return; }
         
-        // ユーザー表示
         let userMsgHtml = `<div style="text-align:right; margin:10px 0;"><span style="background:var(--primary); color:white; padding:10px 15px; border-radius:15px; display:inline-block; max-width:80%; word-break:break-word;">${msg}`;
         if(attachedFile) userMsgHtml += `<br><small style="opacity:0.8;">📎 ${attachedFile.name}</small>`;
         userMsgHtml += `</span></div>`;
@@ -509,29 +496,24 @@
                 });
                 parts.push({ inline_data: { mime_type: attachedFile.type, data: base64Data } });
             }
-
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ contents: [{ parts: parts }] })
             });
             const resData = await res.json();
             document.getElementById(loadingId).remove();
             removeAttachedFile();
-
             if(resData.error) throw new Error(resData.error.message);
             const reply = resData.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
             msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:var(--panel); border:1px solid var(--border); padding:10px 15px; border-radius:15px; display:inline-block; max-width:80%; line-height:1.5;">${reply}</span></div>`;
         } catch(e) {
             if(document.getElementById(loadingId)) document.getElementById(loadingId).remove();
-            msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:#fee2e2; color:#accent; padding:10px; border-radius:10px; display:inline-block;">エラー: ${e.message}</span></div>`;
+            msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:#fee2e2; color:red; padding:10px; border-radius:10px; display:inline-block;">エラー: ${e.message}</span></div>`;
         }
         msgArea.scrollTop = msgArea.scrollHeight;
     }
 
-    /* ==========================================
-       6. テンプレート機能
-    ========================================== */
+    /* --- テンプレート --- */
     function addTemplate() { tpls.push({title:"定型文", color:"", body:"【{{項目}}】内容"}); renderTemplates(); localStorage.setItem('grandTpls', JSON.stringify(tpls)); }
     function renderTemplates() {
         const wrap = document.getElementById('tpl-container'); wrap.innerHTML = '';
@@ -564,9 +546,7 @@
     }
     function copyTpl(i, btn) { navigator.clipboard.writeText(document.getElementById(`out-${i}`).innerText).then(() => { btn.innerText = "✅"; setTimeout(() => btn.innerText = "📋", 1500); }); }
 
-    /* ==========================================
-       7. 設定・その他機能
-    ========================================== */
+    /* --- 設定・保存・読込 --- */
     function convertHTML(e) {
         Array.from(e.target.files).forEach(f => {
             const r = new FileReader(); r.onload = (ev) => {
@@ -577,13 +557,29 @@
         });
         alert("統合完了"); closeAllModals();
     }
-    function exportJSON() { const blob = new Blob([JSON.stringify({data, excelData, tpls})], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_backup.json'; a.click(); }
+    
+    // 【アップデート】メモ帳もJSONに含める
+    function exportJSON() { 
+        const memoVal = document.getElementById('memo-area').value;
+        const blob = new Blob([JSON.stringify({data, excelData, tpls, memo: memoVal})], {type: 'application/json'}); 
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_backup.json'; a.click(); 
+    }
+    
+    // 【アップデート】復元時にメモ帳も書き換える
     function importJSON(e) {
         const r = new FileReader(); r.onload = (ev) => {
-            const j = JSON.parse(ev.target.result); if(j.data) data = j.data; if(j.excelData) excelData = j.excelData; if(j.tpls) tpls = j.tpls;
-            renderLinks(); renderExcel(); renderTemplates(); save(); alert("完了");
+            const j = JSON.parse(ev.target.result); 
+            if(j.data) data = j.data; 
+            if(j.excelData) excelData = j.excelData; 
+            if(j.tpls) tpls = j.tpls;
+            if(j.memo !== undefined) {
+                document.getElementById('memo-area').value = j.memo;
+                localStorage.setItem('grandMemo', j.memo);
+            }
+            renderLinks(); renderExcel(); renderTemplates(); save(); alert("復元完了！メモ帳も更新されました。");
         }; r.readAsText(e.target.files[0]);
     }
+    
     function gate() { const p = prompt("キーワード:"); if(p) location.href = p + ".html"; }
     function toggleTheme() { const t = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light'; document.documentElement.setAttribute('data-theme', t); localStorage.setItem('grandTheme', t); }
     function toggleModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
