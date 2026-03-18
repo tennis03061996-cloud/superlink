@@ -24,19 +24,20 @@
         body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: background 0.3s; }
         
         /* ヘッダー */
-        header { background: var(--header-bg); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+        header { background: var(--header-bg); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.3); flex-wrap: wrap; gap: 10px; }
         #clock { font-family: monospace; font-size: 1.2rem; font-weight: bold; display: none; }
         @media(min-width: 600px) { #clock { display: block; } }
         .search-bar input { width: 100%; max-width: 250px; padding: 8px; border-radius: 4px; border: none; background: rgba(255,255,255,0.1); color: white; }
         
         main { display: flex; flex: 1; overflow: hidden; }
         
-        /* サイドバー */
-        #sidebar { width: 230px; background: #1e293b; color: white; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid var(--border); flex-shrink: 0; }
-        .nav-item { padding: 12px; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: 0.2s; display: flex; align-items: center; gap: 8px; }
+        /* サイドバー (★開閉対応に進化！) */
+        #sidebar { width: 230px; background: #1e293b; color: white; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid var(--border); flex-shrink: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        #sidebar.closed { width: 0; padding: 0; border: none; overflow: hidden; opacity: 0; }
+        .nav-item { padding: 12px; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: 0.2s; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
         .nav-item:hover { background: rgba(255,255,255,0.1); }
         .nav-item.active { background: var(--primary); color: white; }
-        .group-filter-item { padding: 8px 12px 8px 30px; font-size: 0.85rem; color: #94a3b8; cursor: pointer; border-radius: 4px; }
+        .group-filter-item { padding: 8px 12px 8px 30px; font-size: 0.85rem; color: #94a3b8; cursor: pointer; border-radius: 4px; white-space: nowrap; }
         .group-filter-item:hover { color: white; }
         .group-filter-item.active { color: #60a5fa; font-weight: bold; }
 
@@ -87,7 +88,7 @@
         .tools-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 
         /* ボタン共通 */
-        .btn { cursor: pointer; border: none; border-radius: 6px; padding: 8px 16px; font-size: 0.9rem; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+        .btn { cursor: pointer; border: none; border-radius: 6px; padding: 8px 16px; font-size: 0.9rem; font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-danger { background: var(--accent); color: white; }
         .btn-success { background: var(--success); color: white; }
@@ -95,8 +96,8 @@
         .btn-ghost { background: #475569; color: white; }
         .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
 
-        /* 右側メモ欄 (開閉対応) */
-        #right-sidebar { width: 280px; background: #fffdeb; border-left: 1px solid #e5e7eb; padding: 20px; display: flex; flex-direction: column; z-index: 50; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        /* 右側メモ欄 */
+        #right-sidebar { width: 280px; background: #fffdeb; border-left: 1px solid #e5e7eb; padding: 20px; display: flex; flex-direction: column; z-index: 50; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; }
         #right-sidebar.closed { width: 0; padding: 0; border: none; overflow: hidden; opacity: 0; }
 
         /* モーダル */
@@ -112,15 +113,18 @@
 <body onload="init()">
 
 <header>
-    <div style="display:flex; align-items:center; gap:15px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+        <button id="sidebarToggleBtn" class="btn btn-warning" onclick="toggleSidebar()">◀ メニュー</button>
         <div id="clock">00:00:00</div>
         <button class="btn" onclick="toggleTheme()" style="background:transparent; font-size:1.3rem; padding:5px;">🌓</button>
     </div>
-    <div class="search-bar" style="flex:1; margin:0 15px;">
+    
+    <div class="search-bar" style="flex:1; margin:0 15px; min-width: 150px;">
         <input type="text" id="searchInput" placeholder="🔗 リンク内を検索..." oninput="renderLinks()">
     </div>
+    
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-        <button id="memoToggleBtn" class="btn btn-warning" onclick="toggleMemo()">▶ 隠す</button>
+        <button id="memoToggleBtn" class="btn btn-warning" onclick="toggleMemo()">メモ ▶</button>
         <button class="btn btn-primary" onclick="gate()">🚪 門</button>
         <button id="editBtn" class="btn btn-ghost" onclick="toggleEditMode()">✏️ 編集</button>
         <button class="btn btn-primary" onclick="toggleModal('configModal')">🛠 設定</button>
@@ -132,7 +136,8 @@
         <div class="nav-item active" onclick="switchTab('links')"><span>🔗</span> リンク集</div>
         <div id="filter-container"></div>
         <hr style="width:100%; border:0; border-top:1px solid rgba(255,255,255,0.1); margin: 10px 0;">
-        <div class="nav-item" onclick="switchTab('tools')"><span>🧰</span> 便利ツール</div> <div class="nav-item" onclick="switchTab('excel')"><span>📊</span> 表計算ツール</div>
+        <div class="nav-item" onclick="switchTab('tools')"><span>🧰</span> 便利ツール</div>
+        <div class="nav-item" onclick="switchTab('excel')"><span>📊</span> 表計算ツール</div>
         <div class="nav-item" onclick="switchTab('multi')"><span>🖥</span> 統合画面</div>
         <div class="nav-item" onclick="switchTab('tpl')"><span>📝</span> テンプレ作成</div>
         <div class="nav-item" onclick="switchTab('diff')"><span>⚖️</span> 文章比較</div>
@@ -291,7 +296,8 @@
     let attachedFile = null;
     let isEditMode = false;
     let currentFilter = 'all';
-    let isMemoOpen = true; // ★ メモ欄の状態
+    let isMemoOpen = true; 
+    let isSidebarOpen = true; // ★ サイドバーの状態
 
     function init() {
         document.documentElement.setAttribute('data-theme', localStorage.getItem('grandTheme') || 'light');
@@ -300,8 +306,11 @@
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('ja-JP'); }, 1000);
         renderLinks(); renderExcel(); renderTemplates();
         
-        // スマホなどの画面サイズに合わせて初期状態を調整
-        if(window.innerWidth <= 768) toggleMemo(); 
+        // スマホ画面サイズに合わせて初期状態を調整
+        if(window.innerWidth <= 768) {
+            toggleMemo();
+            toggleSidebar(); // 画面が小さい時はメニューも最初から閉じる
+        }
     }
 
     function save() { localStorage.setItem('grandHubData', JSON.stringify(data)); }
@@ -314,19 +323,37 @@
         else if(event && event.currentTarget.classList.contains('nav-item')) { event.currentTarget.classList.add('active'); }
     }
 
-    /* ★ メモ欄の開閉機能 */
+    /* ★ サイドバー（左メニュー）の開閉機能 */
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const btn = document.getElementById('sidebarToggleBtn');
+        isSidebarOpen = !isSidebarOpen;
+        if(isSidebarOpen) {
+            sidebar.classList.remove('closed');
+            btn.innerText = "◀ メニュー";
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-warning');
+        } else {
+            sidebar.classList.add('closed');
+            btn.innerText = "メニュー ▶";
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-success');
+        }
+    }
+
+    /* メモ欄の開閉機能 */
     function toggleMemo() {
         const memo = document.getElementById('right-sidebar');
         const btn = document.getElementById('memoToggleBtn');
         isMemoOpen = !isMemoOpen;
         if(isMemoOpen) {
             memo.classList.remove('closed');
-            btn.innerText = "▶ 隠す";
+            btn.innerText = "メモ ▶";
             btn.classList.remove('btn-success');
             btn.classList.add('btn-warning');
         } else {
             memo.classList.add('closed');
-            btn.innerText = "◀ メモを開く";
+            btn.innerText = "◀ メモ";
             btn.classList.remove('btn-warning');
             btn.classList.add('btn-success');
         }
@@ -440,7 +467,6 @@
         document.querySelectorAll('.link-grid').forEach(el => { Sortable.create(el, { group: 'shared-links', handle: '.drag-handle', animation: 150, onEnd: (e) => { const fG = e.from.dataset.gidx, fS = e.from.dataset.sidx, fSS = e.from.dataset.ssidx, tG = e.to.dataset.gidx, tS = e.to.dataset.sidx, tSS = e.to.dataset.ssidx; const item = data[fG].subs[fS].subs[fSS].links.splice(e.oldIndex, 1)[0]; data[tG].subs[tS].subs[tSS].links.splice(e.newIndex, 0, item); save(); } }); });
     }
 
-    /* ★ 新機能：AIによるリンク自動振り分け */
     async function autoCategorizeLink() {
         const key = document.getElementById('geminiApiKey').value;
         if(!key) return alert("「🤖 Gemini司令室」タブで先にAPIキーを設定してね！");
@@ -456,7 +482,6 @@
         btn.disabled = true;
 
         try {
-            // 現在の構造を軽量化してAIに渡す
             const structure = data.map((g, gi) => ({
                 gIdx: gi, title: g.title,
                 subs: g.subs.map((s, si) => ({
@@ -480,7 +505,6 @@ ${JSON.stringify(structure)}
             if(resData.error) throw new Error(resData.error.message);
             
             let reply = resData.candidates[0].content.parts[0].text.trim();
-            // Markdownの ```json などを取り除く
             reply = reply.replace(/```json/g, '').replace(/```/g, '').trim();
             const result = JSON.parse(reply);
             
@@ -498,7 +522,6 @@ ${JSON.stringify(structure)}
         btn.disabled = false;
     }
 
-    /* --- ドラッグ＆ドロップ統合画面 --- */
     function dragToIntegration(e) { const url = e.currentTarget.dataset.url; const name = e.currentTarget.dataset.name; e.dataTransfer.setData('application/json', JSON.stringify({ url: url, name: name })); }
     function allowDrop(e) { e.preventDefault(); e.currentTarget.style.background = 'rgba(37, 99, 235, 0.1)'; }
     function handleDrop(e) {
@@ -523,7 +546,6 @@ ${JSON.stringify(structure)}
         } catch(err) {}
     }
 
-    /* --- 編集操作 --- */
     function toggleEditMode() { isEditMode = !isEditMode; document.body.classList.toggle('edit-mode'); document.getElementById('editBtn').innerText = isEditMode ? "✅ 終了" : "✏️ 編集"; document.getElementById('add-group-btn-wrap').style.display = isEditMode ? 'flex' : 'none'; renderLinks(); }
     function addGroup() { data.push({title:"新グループ", subs:[]}); renderLinks(); save(); }
     function addSub(g) { data[g].subs.push({title:"新中項目", subs:[]}); renderLinks(); save(); }
@@ -531,37 +553,24 @@ ${JSON.stringify(structure)}
     function addLink(g,s,ss) { data[g].subs[s].subs[ss].links.push({name:"新規", url:"https://"}); renderLinks(); save(); }
     function del(type, g, s, ss, l) { if(!confirm("消去？")) return; if(type==='g') data.splice(g,1); else if(type==='s') data[g].subs.splice(s,1); else if(type==='ss') data[g].subs[s].subs.splice(ss,1); else if(type==='l') data[g].subs[s].subs[ss].links.splice(l,1); renderLinks(); save(); }
 
-    /* ★ 便利ツール：URL短縮・QRコード作成・QR読み取り */
     async function shortenUrl() {
         const url = document.getElementById('shorten-input').value;
         if(!url) return alert('URLを入力してね！');
         try {
-            // is.gd の公開APIを使用 (CORS制限なし)
             const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`);
             const data = await res.json();
-            if(data.shorturl) {
-                document.getElementById('shorten-result').value = data.shorturl;
-            } else {
-                alert('短縮に失敗しました。正しいURLか確認してね。');
-            }
-        } catch(e) {
-            alert('通信エラーが発生したよ。');
-        }
+            if(data.shorturl) { document.getElementById('shorten-result').value = data.shorturl; } 
+            else { alert('短縮に失敗しました。正しいURLか確認してね。'); }
+        } catch(e) { alert('通信エラーが発生したよ。'); }
     }
 
     function generateQR() {
         const text = document.getElementById('qr-gen-input').value;
         const img = document.getElementById('qr-gen-img');
         const placeholder = document.getElementById('qr-gen-placeholder');
-        if(!text) {
-            img.style.display = 'none';
-            placeholder.style.display = 'inline';
-            return;
-        }
-        // Google Chart API 互換の API (qrserver) を使用
+        if(!text) { img.style.display = 'none'; placeholder.style.display = 'inline'; return; }
         img.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(text)}`;
-        img.style.display = 'block';
-        placeholder.style.display = 'none';
+        img.style.display = 'block'; placeholder.style.display = 'none';
     }
 
     function readQR(e) {
@@ -576,20 +585,15 @@ ${JSON.stringify(structure)}
                 canvas.width = img.width; canvas.height = img.height;
                 ctx.drawImage(img, 0, 0, img.width, img.height);
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                // jsQRライブラリを使用して解析
                 const code = jsQR(imageData.data, imageData.width, imageData.height);
-                if(code) {
-                    document.getElementById('qr-read-result').value = code.data;
-                } else {
-                    document.getElementById('qr-read-result').value = 'QRコードが見つかりませんでした。';
-                }
+                if(code) { document.getElementById('qr-read-result').value = code.data; } 
+                else { document.getElementById('qr-read-result').value = 'QRコードが見つかりませんでした。'; }
             };
             img.src = event.target.result;
         };
         reader.readAsDataURL(file);
     }
 
-    /* --- 表計算 --- */
     function renderExcel() {
         const table = document.getElementById('excelTable'); table.innerHTML = '';
         let head = '<tr><th></th>';
@@ -630,7 +634,6 @@ ${JSON.stringify(structure)}
     function clearExcel() { if(confirm("消去？")) { excelData=Array(10).fill().map(()=>Array(10).fill('')); renderExcel(); saveExcel(); } }
     function saveExcel() { localStorage.setItem('grandExcel', JSON.stringify(excelData)); }
 
-    /* --- 文章比較 --- */
     function executeHikaku() {
         const s1 = document.getElementById('ss1').value, s2 = document.getElementById('ss2').value;
         let mC = []; diffEngine(s1, s2, mC);
@@ -657,7 +660,6 @@ ${JSON.stringify(structure)}
         }
     }
 
-    /* --- Gemini 司令室 --- */
     function handleAiFile(e) {
         const file = e.target.files[0];
         if(!file) return;
@@ -712,7 +714,6 @@ ${JSON.stringify(structure)}
         msgArea.scrollTop = msgArea.scrollHeight;
     }
 
-    /* --- テンプレート --- */
     function addTemplate() { tpls.push({title:"定型文", color:"", body:"【{{項目}}】内容"}); renderTemplates(); localStorage.setItem('grandTpls', JSON.stringify(tpls)); }
     
     async function generateTplWithAI(e) {
@@ -730,7 +731,7 @@ ${JSON.stringify(structure)}
 ルール：
 1. 後から入力する可変部分は必ず {{変数名}} の形式にしてください（例: {{宛名}}, {{日時}}, {{自分の名前}} など）。
 2. 余計な挨拶や解説（「以下がテンプレートです」など）は一切省いて、テンプレートの本文のテキストデータのみを出力してください。`;
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${key}`, {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ contents: [{ parts: [{ text: msg }] }] })
             });
@@ -787,7 +788,6 @@ ${JSON.stringify(structure)}
         }; r.readAsText(e.target.files[0]);
     }
 
-    /* --- 設定・保存・読込 --- */
     function convertHTML(e) {
         Array.from(e.target.files).forEach(f => {
             const r = new FileReader(); r.onload = (ev) => {
@@ -798,19 +798,35 @@ ${JSON.stringify(structure)}
         });
         alert("統合完了"); closeAllModals();
     }
+    
     function exportJSON() { 
         const memoVal = document.getElementById('memo-area').value;
         const blob = new Blob([JSON.stringify({data, excelData, tpls, memo: memoVal})], {type: 'application/json'}); 
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_backup.json'; a.click(); 
     }
+    
+    // ★ ここが修正の目玉！ localStorage への保存処理を追加したよ！
     function importJSON(e) {
         const r = new FileReader(); r.onload = (ev) => {
             const j = JSON.parse(ev.target.result); 
-            if(j.data) data = j.data; if(j.excelData) excelData = j.excelData; if(j.tpls) tpls = j.tpls;
-            if(j.memo !== undefined) { document.getElementById('memo-area').value = j.memo; localStorage.setItem('grandMemo', j.memo); }
-            renderLinks(); renderExcel(); renderTemplates(); save(); alert("復元完了！");
+            if(j.data) data = j.data; 
+            if(j.excelData) excelData = j.excelData; 
+            
+            if(j.tpls) {
+                tpls = j.tpls; 
+                localStorage.setItem('grandTpls', JSON.stringify(tpls)); // ★ これが抜けていたのを修正！
+            }
+            
+            if(j.memo !== undefined) { 
+                document.getElementById('memo-area').value = j.memo; 
+                localStorage.setItem('grandMemo', j.memo); 
+            }
+            
+            renderLinks(); renderExcel(); renderTemplates(); save(); 
+            alert("復元完了！テンプレもバッチリ読み込んだよ！");
         }; r.readAsText(e.target.files[0]);
     }
+
     function gate() { const p = prompt("キーワード:"); if(p) location.href = p + ".html"; }
     function toggleTheme() { const t = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light'; document.documentElement.setAttribute('data-theme', t); localStorage.setItem('grandTheme', t); }
     function toggleModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
