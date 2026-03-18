@@ -31,7 +31,7 @@
         
         main { display: flex; flex: 1; overflow: hidden; }
         
-        /* サイドバー (★開閉対応に進化！) */
+        /* サイドバー */
         #sidebar { width: 230px; background: #1e293b; color: white; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid var(--border); flex-shrink: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         #sidebar.closed { width: 0; padding: 0; border: none; overflow: hidden; opacity: 0; }
         .nav-item { padding: 12px; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: 0.2s; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
@@ -52,7 +52,7 @@
         .sub-group { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 20px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: background-color 0.3s; }
         .sub-sub-group { margin-bottom: 15px; padding: 12px; border-radius: 8px; border-left: 3px solid #cbd5e1; transition: background-color 0.3s; }
         .link-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; min-height: 50px; padding: 5px; border-radius: 8px; }
-        .link-card { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); text-decoration: none; color: var(--text); font-size: 0.9rem; transition: 0.2s; cursor: grab; }
+        .link-card { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); text-decoration: none; color: var(--text); font-size: 0.9rem; transition: 0.2s; cursor: grab; position: relative; }
         .link-card:hover { border-color: var(--primary); transform: translateY(-1px); }
         .favicon { width: 18px; height: 18px; flex-shrink: 0; pointer-events: none; }
         
@@ -64,6 +64,13 @@
         .edit-input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem; background: var(--panel); color: var(--text); }
         .edit-label { font-size: 0.7rem; color: #64748b; margin-top: 5px; font-weight: bold; }
         .color-picker { width: 30px; height: 30px; border: none; border-radius: 50%; cursor: pointer; padding: 0; }
+
+        /* ★ 一括操作用のチェックボックスとアクションバー */
+        .link-select-cb { display: none; position: absolute; top: -8px; left: -8px; transform: scale(1.4); z-index: 10; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        body.edit-mode .link-select-cb { display: block; }
+        .bulk-action-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--header-bg); color: white; padding: 15px 25px; border-radius: 30px; display: none; gap: 15px; z-index: 2000; box-shadow: 0 10px 25px rgba(0,0,0,0.5); align-items: center; flex-wrap: wrap; justify-content: center; }
+        .bulk-action-bar.active { display: flex; animation: slideUp 0.3s; }
+        @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 20px; opacity: 1; } }
 
         /* 表計算ツール */
         .excel-wrap { overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; max-height: 70vh; }
@@ -274,6 +281,13 @@
     </div>
 </main>
 
+<div id="bulkActionBar" class="bulk-action-bar">
+    <span id="bulkCount" style="font-weight:bold;">0件選択中</span>
+    <button class="btn btn-primary" onclick="openBulkMoveModal()">📦 別グループへ移動</button>
+    <button class="btn btn-danger" onclick="executeBulkDelete()">🗑️ 一括削除</button>
+    <button class="btn btn-ghost" onclick="clearBulkSelect()">キャンセル</button>
+</div>
+
 <div id="overlay" onclick="closeAllModals()"></div>
 <div id="configModal" class="modal">
     <h3>🛠 システム設定</h3>
@@ -288,6 +302,19 @@
     <button class="btn btn-danger" style="width:100%; margin-top:25px;" onclick="closeAllModals()">閉じる</button>
 </div>
 
+<div id="bulkMoveModal" class="modal">
+    <h3 style="margin-top:0;">📦 選択したリンクの移動先</h3>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+        <div><label style="font-size:0.8rem; font-weight:bold;">大グループ:</label><select id="bm-g" class="edit-input" onchange="updateBmS()"></select></div>
+        <div><label style="font-size:0.8rem; font-weight:bold;">中グループ:</label><select id="bm-s" class="edit-input" onchange="updateBmSS()"></select></div>
+        <div><label style="font-size:0.8rem; font-weight:bold;">小グループ:</label><select id="bm-ss" class="edit-input"></select></div>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:20px;">
+        <button class="btn btn-success" style="flex:1;" onclick="executeBulkMove()">ここに移動する</button>
+        <button class="btn btn-ghost" style="flex:1;" onclick="closeAllModals()">キャンセル</button>
+    </div>
+</div>
+
 <script>
     /* --- 基本設定・データ --- */
     let data = JSON.parse(localStorage.getItem('grandHubData')) || [{ title: "初期グループ", color: "", subs: [{ title: "カテゴリ", color: "", subs: [{ title: "項目", color: "", links: [] }] }] }];
@@ -297,7 +324,7 @@
     let isEditMode = false;
     let currentFilter = 'all';
     let isMemoOpen = true; 
-    let isSidebarOpen = true; // ★ サイドバーの状態
+    let isSidebarOpen = true;
 
     function init() {
         document.documentElement.setAttribute('data-theme', localStorage.getItem('grandTheme') || 'light');
@@ -306,10 +333,9 @@
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('ja-JP'); }, 1000);
         renderLinks(); renderExcel(); renderTemplates();
         
-        // スマホ画面サイズに合わせて初期状態を調整
         if(window.innerWidth <= 768) {
             toggleMemo();
-            toggleSidebar(); // 画面が小さい時はメニューも最初から閉じる
+            toggleSidebar();
         }
     }
 
@@ -323,7 +349,6 @@
         else if(event && event.currentTarget.classList.contains('nav-item')) { event.currentTarget.classList.add('active'); }
     }
 
-    /* ★ サイドバー（左メニュー）の開閉機能 */
     function toggleSidebar() {
         const sidebar = document.getElementById('sidebar');
         const btn = document.getElementById('sidebarToggleBtn');
@@ -341,7 +366,6 @@
         }
     }
 
-    /* メモ欄の開閉機能 */
     function toggleMemo() {
         const memo = document.getElementById('right-sidebar');
         const btn = document.getElementById('memoToggleBtn');
@@ -369,14 +393,14 @@
         const allBtn = document.createElement('div');
         allBtn.className = `group-filter-item ${currentFilter === 'all' ? 'active' : ''}`;
         allBtn.innerText = "📁 すべて表示";
-        allBtn.onclick = () => { currentFilter = 'all'; switchTab('links', true); renderLinks(); };
+        allBtn.onclick = () => { currentFilter = 'all'; switchTab('links', true); renderLinks(); clearBulkSelect(); };
         filterArea.appendChild(allBtn);
 
         data.forEach((g, gIdx) => {
             const fBtn = document.createElement('div');
             fBtn.className = `group-filter-item ${currentFilter === gIdx ? 'active' : ''}`;
             fBtn.innerText = `└ ${g.title}`;
-            fBtn.onclick = () => { currentFilter = gIdx; switchTab('links', true); renderLinks(); };
+            fBtn.onclick = () => { currentFilter = gIdx; switchTab('links', true); renderLinks(); clearBulkSelect(); };
             filterArea.appendChild(fBtn);
 
             if (currentFilter !== 'all' && currentFilter !== gIdx) return;
@@ -412,15 +436,17 @@
                             <button class="btn btn-danger btn-sm" onclick="del('s',${gIdx},${sIdx})">削除</button>
                         </div>
                     </div>
-                    <div class="ss-container"></div>
+                    <div class="ss-container" data-gidx="${gIdx}" data-sidx="${sIdx}"></div>
                 `;
 
+                const ssWrap = sDiv.querySelector('.ss-container');
                 s.subs.forEach((ss, ssIdx) => {
                     const ssDiv = document.createElement('div');
                     ssDiv.className = 'sub-sub-group';
                     if(ss.color) ssDiv.style.backgroundColor = ss.color;
                     ssDiv.innerHTML = `
                         <div style="display:flex; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+                            <span class="drag-handle ss-handle" style="margin-right:8px;">⠿</span>
                             ${isEditMode ? `<input class="edit-input" style="font-size:0.85rem; width:auto;" value="${ss.title}" oninput="data[${gIdx}].subs[${sIdx}].subs[${ssIdx}].title=this.value; save()">` : `<span style="font-size:0.85rem; color:#64748b;">● ${ss.title}</span>`}
                             <div class="edit-ui" style="flex-direction:row; border:none; margin-left:auto; background:transparent;">
                                 <input type="color" class="color-picker" value="${ss.color || '#ffffff'}" onchange="data[${gIdx}].subs[${sIdx}].subs[${ssIdx}].color=this.value; save(); renderLinks();">
@@ -435,8 +461,12 @@
                     ss.links.forEach((l, lIdx) => {
                         if (term && !l.name.toLowerCase().includes(term) && !l.url.toLowerCase().includes(term)) return;
                         const cardWrap = document.createElement('div');
+                        cardWrap.style.position = 'relative'; // チェックボックス用
                         let icon = `https://www.google.com/s2/favicons?domain=${l.url.split('/')[2]}`;
+                        
+                        // ★ 一括選択用のチェックボックスを追加
                         cardWrap.innerHTML = `
+                            <input type="checkbox" class="link-select-cb" data-g="${gIdx}" data-s="${sIdx}" data-ss="${ssIdx}" data-l="${lIdx}" onchange="handleLinkSelect()">
                             <a href="${l.url}" target="_blank" class="link-card drag-link-item" draggable="true" data-url="${l.url}" data-name="${l.name}" ondragstart="dragToIntegration(event)">
                                 <span class="drag-handle" style="font-size:1.2rem; margin-right:5px;">⠿</span>
                                 <img src="${icon}" class="favicon" onerror="this.src='https://img.icons8.com/material-outlined/24/null/link--v1.png'">
@@ -450,23 +480,127 @@
                         `;
                         grid.appendChild(cardWrap);
                     });
-                    ssDiv.appendChild(grid);
-                    sDiv.querySelector('.ss-container').appendChild(ssDiv);
+                    ssWrap.appendChild(ssDiv);
                 });
-                gDiv.querySelector('.sub-container').appendChild(sDiv);
+                subWrap.appendChild(sDiv);
             });
             area.appendChild(gDiv);
         });
         if(isEditMode) setupSortable();
     }
 
+    /* ★ 修正：フィルター時でも中・小・リンクは動かせるように制限解除 */
     function setupSortable() {
-        if(currentFilter !== 'all') return;
-        Sortable.create(document.getElementById('main-link-area'), { handle:'.g-handle', animation:150, onEnd: (e) => { const item = data.splice(e.oldIndex, 1)[0]; data.splice(e.newIndex, 0, item); save(); } });
+        // 大グループの並び替えは「すべて表示」の時だけ許可
+        if(currentFilter === 'all') {
+            Sortable.create(document.getElementById('main-link-area'), { handle:'.g-handle', animation:150, onEnd: (e) => { const item = data.splice(e.oldIndex, 1)[0]; data.splice(e.newIndex, 0, item); save(); } });
+        }
+        
+        // 以下の並び替えは、1つ表示の時でも動かせる！
         document.querySelectorAll('.sub-container').forEach(el => { Sortable.create(el, { handle:'.s-handle', animation:150, onEnd: (e) => { const gIdx=el.dataset.gidx; const item=data[gIdx].subs.splice(e.oldIndex,1)[0]; data[gIdx].subs.splice(e.newIndex,0,item); save(); } }); });
+        
+        // ★ 新機能：小グループの並び替え
+        document.querySelectorAll('.ss-container').forEach(el => { Sortable.create(el, { handle:'.ss-handle', animation:150, onEnd: (e) => { const gIdx=el.dataset.gidx, sIdx=el.dataset.sidx; const item=data[gIdx].subs[sIdx].subs.splice(e.oldIndex,1)[0]; data[gIdx].subs[sIdx].subs.splice(e.newIndex,0,item); save(); } }); });
+        
         document.querySelectorAll('.link-grid').forEach(el => { Sortable.create(el, { group: 'shared-links', handle: '.drag-handle', animation: 150, onEnd: (e) => { const fG = e.from.dataset.gidx, fS = e.from.dataset.sidx, fSS = e.from.dataset.ssidx, tG = e.to.dataset.gidx, tS = e.to.dataset.sidx, tSS = e.to.dataset.ssidx; const item = data[fG].subs[fS].subs[fSS].links.splice(e.oldIndex, 1)[0]; data[tG].subs[tS].subs[tSS].links.splice(e.newIndex, 0, item); save(); } }); });
     }
 
+    /* ★ 新機能：リンクの一括操作ロジック */
+    function handleLinkSelect() {
+        const cbs = document.querySelectorAll('.link-select-cb:checked');
+        const bar = document.getElementById('bulkActionBar');
+        if(cbs.length > 0) {
+            bar.classList.add('active');
+            document.getElementById('bulkCount').innerText = `${cbs.length}件選択中`;
+        } else {
+            bar.classList.remove('active');
+        }
+    }
+    
+    function clearBulkSelect() {
+        document.querySelectorAll('.link-select-cb').forEach(cb => cb.checked = false);
+        document.getElementById('bulkActionBar').classList.remove('active');
+    }
+
+    function executeBulkDelete() {
+        if(!confirm("選択したリンクをすべて削除しますか？")) return;
+        const cbs = Array.from(document.querySelectorAll('.link-select-cb:checked'));
+        // インデックスのズレを防ぐため、後ろから削除する（lの降順にソート）
+        let targets = cbs.map(cb => ({ g: parseInt(cb.dataset.g), s: parseInt(cb.dataset.s), ss: parseInt(cb.dataset.ss), l: parseInt(cb.dataset.l) }));
+        targets.sort((a, b) => b.l - a.l);
+        
+        targets.forEach(t => data[t.g].subs[t.s].subs[t.ss].links.splice(t.l, 1));
+        save(); renderLinks(); clearBulkSelect();
+    }
+
+    function openBulkMoveModal() {
+        if(data.length === 0 || data[0].subs.length === 0 || data[0].subs[0].subs.length === 0) return alert("移動先の小グループがありません。先にグループを作成してください！");
+        
+        let gHtml = '';
+        data.forEach((g, i) => gHtml += `<option value="${i}">${g.title}</option>`);
+        document.getElementById('bm-g').innerHTML = gHtml;
+        updateBmS();
+        toggleModal('bulkMoveModal');
+    }
+
+    function updateBmS() {
+        const gIdx = parseInt(document.getElementById('bm-g').value);
+        let sHtml = '';
+        if(data[gIdx] && data[gIdx].subs) {
+            data[gIdx].subs.forEach((s, i) => sHtml += `<option value="${i}">${s.title}</option>`);
+        }
+        document.getElementById('bm-s').innerHTML = sHtml;
+        updateBmSS();
+    }
+
+    function updateBmSS() {
+        const gIdx = parseInt(document.getElementById('bm-g').value);
+        const sIdx = parseInt(document.getElementById('bm-s').value);
+        let ssHtml = '';
+        if(data[gIdx] && data[gIdx].subs[sIdx] && data[gIdx].subs[sIdx].subs) {
+            data[gIdx].subs[sIdx].subs.forEach((ss, i) => ssHtml += `<option value="${i}">${ss.title}</option>`);
+        }
+        document.getElementById('bm-ss').innerHTML = ssHtml;
+    }
+
+    function executeBulkMove() {
+        const tG = parseInt(document.getElementById('bm-g').value);
+        const tS = parseInt(document.getElementById('bm-s').value);
+        const tSS = parseInt(document.getElementById('bm-ss').value);
+        if(isNaN(tG) || isNaN(tS) || isNaN(tSS)) return alert('移動先が正しく選択されていません');
+
+        const cbs = Array.from(document.querySelectorAll('.link-select-cb:checked'));
+        let targets = cbs.map(cb => ({ g: parseInt(cb.dataset.g), s: parseInt(cb.dataset.s), ss: parseInt(cb.dataset.ss), l: parseInt(cb.dataset.l) }));
+        // インデックスズレ防止のため l の降順ソート
+        targets.sort((a, b) => b.l - a.l);
+
+        let movedItems = [];
+        targets.forEach(t => {
+            const item = data[t.g].subs[t.s].subs[t.ss].links.splice(t.l, 1)[0];
+            movedItems.push(item);
+        });
+
+        // 抽出したものを元の並び順に戻して一気に追加
+        movedItems.reverse();
+        data[tG].subs[tS].subs[tSS].links.push(...movedItems);
+
+        save(); renderLinks(); closeAllModals(); clearBulkSelect(); alert("移動が完了したよ！");
+    }
+
+    /* ★ 修正：大グループの追加位置をスマートに */
+    function addGroup() { 
+        const newGroup = {title:"新グループ", subs:[]};
+        if(currentFilter === 'all') {
+            data.push(newGroup); 
+        } else {
+            // 表示している大グループの「直後」に追加して、そこへ移動
+            data.splice(currentFilter + 1, 0, newGroup);
+            currentFilter = currentFilter + 1;
+        }
+        renderLinks(); save(); 
+    }
+
+    /* 以下、既存機能 (省略・削除なし) */
     async function autoCategorizeLink() {
         const key = document.getElementById('geminiApiKey').value;
         if(!key) return alert("「🤖 Gemini司令室」タブで先にAPIキーを設定してね！");
@@ -546,12 +680,19 @@ ${JSON.stringify(structure)}
         } catch(err) {}
     }
 
-    function toggleEditMode() { isEditMode = !isEditMode; document.body.classList.toggle('edit-mode'); document.getElementById('editBtn').innerText = isEditMode ? "✅ 終了" : "✏️ 編集"; document.getElementById('add-group-btn-wrap').style.display = isEditMode ? 'flex' : 'none'; renderLinks(); }
-    function addGroup() { data.push({title:"新グループ", subs:[]}); renderLinks(); save(); }
+    function toggleEditMode() { 
+        isEditMode = !isEditMode; 
+        document.body.classList.toggle('edit-mode'); 
+        document.getElementById('editBtn').innerText = isEditMode ? "✅ 終了" : "✏️ 編集"; 
+        document.getElementById('add-group-btn-wrap').style.display = isEditMode ? 'flex' : 'none'; 
+        if(!isEditMode) clearBulkSelect();
+        renderLinks(); 
+    }
+    
     function addSub(g) { data[g].subs.push({title:"新中項目", subs:[]}); renderLinks(); save(); }
     function addSSub(g,s) { data[g].subs[s].subs.push({title:"新小項目", links:[]}); renderLinks(); save(); }
     function addLink(g,s,ss) { data[g].subs[s].subs[ss].links.push({name:"新規", url:"https://"}); renderLinks(); save(); }
-    function del(type, g, s, ss, l) { if(!confirm("消去？")) return; if(type==='g') data.splice(g,1); else if(type==='s') data[g].subs.splice(s,1); else if(type==='ss') data[g].subs[s].subs.splice(ss,1); else if(type==='l') data[g].subs[s].subs[ss].links.splice(l,1); renderLinks(); save(); }
+    function del(type, g, s, ss, l) { if(!confirm("消去？")) return; if(type==='g') { data.splice(g,1); if(currentFilter===g) currentFilter='all'; } else if(type==='s') data[g].subs.splice(s,1); else if(type==='ss') data[g].subs[s].subs.splice(ss,1); else if(type==='l') data[g].subs[s].subs[ss].links.splice(l,1); renderLinks(); save(); }
 
     async function shortenUrl() {
         const url = document.getElementById('shorten-input').value;
@@ -731,7 +872,7 @@ ${JSON.stringify(structure)}
 ルール：
 1. 後から入力する可変部分は必ず {{変数名}} の形式にしてください（例: {{宛名}}, {{日時}}, {{自分の名前}} など）。
 2. 余計な挨拶や解説（「以下がテンプレートです」など）は一切省いて、テンプレートの本文のテキストデータのみを出力してください。`;
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${key}`, {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ contents: [{ parts: [{ text: msg }] }] })
             });
@@ -799,13 +940,14 @@ ${JSON.stringify(structure)}
         alert("統合完了"); closeAllModals();
     }
     
+    // ★ 全体保存
     function exportJSON() { 
         const memoVal = document.getElementById('memo-area').value;
         const blob = new Blob([JSON.stringify({data, excelData, tpls, memo: memoVal})], {type: 'application/json'}); 
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_backup.json'; a.click(); 
     }
     
-    // ★ ここが修正の目玉！ localStorage への保存処理を追加したよ！
+    // ★ 全体読込 (バグ修正済: localStorageへの保存処理を追加)
     function importJSON(e) {
         const r = new FileReader(); r.onload = (ev) => {
             const j = JSON.parse(ev.target.result); 
@@ -814,7 +956,7 @@ ${JSON.stringify(structure)}
             
             if(j.tpls) {
                 tpls = j.tpls; 
-                localStorage.setItem('grandTpls', JSON.stringify(tpls)); // ★ これが抜けていたのを修正！
+                localStorage.setItem('grandTpls', JSON.stringify(tpls)); // ← ここをしっかり修正！
             }
             
             if(j.memo !== undefined) { 
