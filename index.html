@@ -65,7 +65,7 @@
         .edit-label { font-size: 0.7rem; color: #64748b; margin-top: 5px; font-weight: bold; }
         .color-picker { width: 30px; height: 30px; border: none; border-radius: 50%; cursor: pointer; padding: 0; }
 
-        /* ★ 一括操作用のチェックボックスとアクションバー */
+        /* 一括操作用のチェックボックスとアクションバー */
         .link-select-cb { display: none; position: absolute; top: -8px; left: -8px; transform: scale(1.4); z-index: 10; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         body.edit-mode .link-select-cb { display: block; }
         .bulk-action-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--header-bg); color: white; padding: 15px 25px; border-radius: 30px; display: none; gap: 15px; z-index: 2000; box-shadow: 0 10px 25px rgba(0,0,0,0.5); align-items: center; flex-wrap: wrap; justify-content: center; }
@@ -164,7 +164,6 @@
 
         <div id="tools-panel" class="view-panel">
             <h2 style="margin-top:0;">🧰 便利ツールキット</h2>
-            
             <div class="tools-card">
                 <h3>🔗 URL短縮ツール</h3>
                 <div style="display:flex; gap:10px;">
@@ -220,10 +219,17 @@
         </div>
 
         <div id="multi-panel" class="view-panel">
+            <div style="display:flex; gap:10px; margin-bottom: 15px; flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="exportMultiJSON()">💾 この画面を保存</button>
+                <button class="btn btn-ghost" onclick="document.getElementById('importMultiFile').click()">📂 画面を復元</button>
+                <input type="file" id="importMultiFile" style="display:none" onchange="importMultiJSON(event)">
+                <button class="btn btn-danger" onclick="clearMultiGrid()">🗑️ すべて閉じる</button>
+            </div>
+            
             <div style="border:3px dashed var(--primary); padding:20px; text-align:center; border-radius:12px; background:var(--sub-bg); margin-bottom:20px; transition: 0.3s;" 
                  ondragover="allowDrop(event)" ondragleave="this.style.background='var(--sub-bg)'" ondrop="handleDrop(event)">
                 <h3 style="margin:0;">🖱 リンクをここにドラッグ＆ドロップして表示</h3>
-                <p style="font-size:0.8rem; color:#64748b; margin-top:5px;">※各枠の右下を引っ張るとリサイズでき、上のスライダーで拡大縮小できます</p>
+                <p style="font-size:0.8rem; color:#64748b; margin-top:5px;">※各枠の右下を引っ張るとリサイズでき、上のスライダーで拡大縮小できます。<br>※「編集モード」中は左上の「⠿」を掴んで窓の順番を入れ替えられます！</p>
             </div>
             <div id="multi-grid" style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start;"></div>
         </div>
@@ -244,13 +250,13 @@
                 </div>
             </div>
             
-            <div id="tpl-container" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:20px;"></div>
+            <div id="tpl-container" style="display:flex; flex-wrap:wrap; gap:20px;"></div>
         </div>
 
         <div id="gemini-panel" class="view-panel">
             <div style="max-width:800px; margin:0 auto; background:var(--panel); padding:30px; border-radius:15px; box-shadow:0 10px 30px rgba(0,0,0,0.1); display:flex; flex-direction:column; height: 75vh;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-                    <h3 style="margin:0;">🤖 Gemini 2.5 Flash 司令室</h3>
+                    <h3 style="margin:0;">🤖 Gemini 3 Flash Preview 司令室</h3>
                     <input type="password" id="geminiApiKey" placeholder="API Keyを入力..." class="edit-input" style="width:200px;" oninput="localStorage.setItem('grandGeminiKey', this.value)">
                 </div>
                 <div id="gemini-chat-area" style="flex:1; overflow-y:auto; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:15px; margin-bottom:15px; display:flex; flex-direction:column; gap:10px;">
@@ -337,6 +343,7 @@
             toggleMemo();
             toggleSidebar();
         }
+        setupExtraSortables();
     }
 
     function save() { localStorage.setItem('grandHubData', JSON.stringify(data)); }
@@ -353,34 +360,16 @@
         const sidebar = document.getElementById('sidebar');
         const btn = document.getElementById('sidebarToggleBtn');
         isSidebarOpen = !isSidebarOpen;
-        if(isSidebarOpen) {
-            sidebar.classList.remove('closed');
-            btn.innerText = "◀ メニュー";
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-warning');
-        } else {
-            sidebar.classList.add('closed');
-            btn.innerText = "メニュー ▶";
-            btn.classList.remove('btn-warning');
-            btn.classList.add('btn-success');
-        }
+        if(isSidebarOpen) { sidebar.classList.remove('closed'); btn.innerText = "◀ メニュー"; btn.classList.remove('btn-success'); btn.classList.add('btn-warning');
+        } else { sidebar.classList.add('closed'); btn.innerText = "メニュー ▶"; btn.classList.remove('btn-warning'); btn.classList.add('btn-success'); }
     }
 
     function toggleMemo() {
         const memo = document.getElementById('right-sidebar');
         const btn = document.getElementById('memoToggleBtn');
         isMemoOpen = !isMemoOpen;
-        if(isMemoOpen) {
-            memo.classList.remove('closed');
-            btn.innerText = "メモ ▶";
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-warning');
-        } else {
-            memo.classList.add('closed');
-            btn.innerText = "◀ メモ";
-            btn.classList.remove('btn-warning');
-            btn.classList.add('btn-success');
-        }
+        if(isMemoOpen) { memo.classList.remove('closed'); btn.innerText = "メモ ▶"; btn.classList.remove('btn-success'); btn.classList.add('btn-warning');
+        } else { memo.classList.add('closed'); btn.innerText = "◀ メモ"; btn.classList.remove('btn-warning'); btn.classList.add('btn-success'); }
     }
 
     /* --- リンク集 --- */
@@ -461,10 +450,9 @@
                     ss.links.forEach((l, lIdx) => {
                         if (term && !l.name.toLowerCase().includes(term) && !l.url.toLowerCase().includes(term)) return;
                         const cardWrap = document.createElement('div');
-                        cardWrap.style.position = 'relative'; // チェックボックス用
+                        cardWrap.style.position = 'relative'; 
                         let icon = `https://www.google.com/s2/favicons?domain=${l.url.split('/')[2]}`;
                         
-                        // ★ 一括選択用のチェックボックスを追加
                         cardWrap.innerHTML = `
                             <input type="checkbox" class="link-select-cb" data-g="${gIdx}" data-s="${sIdx}" data-ss="${ssIdx}" data-l="${lIdx}" onchange="handleLinkSelect()">
                             <a href="${l.url}" target="_blank" class="link-card drag-link-item" draggable="true" data-url="${l.url}" data-name="${l.name}" ondragstart="dragToIntegration(event)">
@@ -489,195 +477,160 @@
         if(isEditMode) setupSortable();
     }
 
-    /* ★ 修正：フィルター時でも中・小・リンクは動かせるように制限解除 */
     function setupSortable() {
-        // 大グループの並び替えは「すべて表示」の時だけ許可
-        if(currentFilter === 'all') {
-            Sortable.create(document.getElementById('main-link-area'), { handle:'.g-handle', animation:150, onEnd: (e) => { const item = data.splice(e.oldIndex, 1)[0]; data.splice(e.newIndex, 0, item); save(); } });
-        }
-        
-        // 以下の並び替えは、1つ表示の時でも動かせる！
+        if(currentFilter === 'all') { Sortable.create(document.getElementById('main-link-area'), { handle:'.g-handle', animation:150, onEnd: (e) => { const item = data.splice(e.oldIndex, 1)[0]; data.splice(e.newIndex, 0, item); save(); } }); }
         document.querySelectorAll('.sub-container').forEach(el => { Sortable.create(el, { handle:'.s-handle', animation:150, onEnd: (e) => { const gIdx=el.dataset.gidx; const item=data[gIdx].subs.splice(e.oldIndex,1)[0]; data[gIdx].subs.splice(e.newIndex,0,item); save(); } }); });
-        
-        // ★ 新機能：小グループの並び替え
         document.querySelectorAll('.ss-container').forEach(el => { Sortable.create(el, { handle:'.ss-handle', animation:150, onEnd: (e) => { const gIdx=el.dataset.gidx, sIdx=el.dataset.sidx; const item=data[gIdx].subs[sIdx].subs.splice(e.oldIndex,1)[0]; data[gIdx].subs[sIdx].subs.splice(e.newIndex,0,item); save(); } }); });
-        
         document.querySelectorAll('.link-grid').forEach(el => { Sortable.create(el, { group: 'shared-links', handle: '.drag-handle', animation: 150, onEnd: (e) => { const fG = e.from.dataset.gidx, fS = e.from.dataset.sidx, fSS = e.from.dataset.ssidx, tG = e.to.dataset.gidx, tS = e.to.dataset.sidx, tSS = e.to.dataset.ssidx; const item = data[fG].subs[fS].subs[fSS].links.splice(e.oldIndex, 1)[0]; data[tG].subs[tS].subs[tSS].links.splice(e.newIndex, 0, item); save(); } }); });
     }
 
-    /* ★ 新機能：リンクの一括操作ロジック */
+    function setupExtraSortables() {
+        const tplContainer = document.getElementById('tpl-container');
+        if(tplContainer) {
+            Sortable.create(tplContainer, {
+                handle: '.tpl-handle', animation: 150,
+                onEnd: (e) => { const item = tpls.splice(e.oldIndex, 1)[0]; tpls.splice(e.newIndex, 0, item); localStorage.setItem('grandTpls', JSON.stringify(tpls)); }
+            });
+        }
+        
+        const multiGrid = document.getElementById('multi-grid');
+        if(multiGrid) {
+            Sortable.create(multiGrid, {
+                handle: '.multi-handle', animation: 150
+            });
+        }
+    }
+
     function handleLinkSelect() {
         const cbs = document.querySelectorAll('.link-select-cb:checked');
         const bar = document.getElementById('bulkActionBar');
-        if(cbs.length > 0) {
-            bar.classList.add('active');
-            document.getElementById('bulkCount').innerText = `${cbs.length}件選択中`;
-        } else {
-            bar.classList.remove('active');
-        }
+        if(cbs.length > 0) { bar.classList.add('active'); document.getElementById('bulkCount').innerText = `${cbs.length}件選択中`; } else { bar.classList.remove('active'); }
     }
     
-    function clearBulkSelect() {
-        document.querySelectorAll('.link-select-cb').forEach(cb => cb.checked = false);
-        document.getElementById('bulkActionBar').classList.remove('active');
-    }
-
+    function clearBulkSelect() { document.querySelectorAll('.link-select-cb').forEach(cb => cb.checked = false); document.getElementById('bulkActionBar').classList.remove('active'); }
     function executeBulkDelete() {
         if(!confirm("選択したリンクをすべて削除しますか？")) return;
         const cbs = Array.from(document.querySelectorAll('.link-select-cb:checked'));
-        // インデックスのズレを防ぐため、後ろから削除する（lの降順にソート）
         let targets = cbs.map(cb => ({ g: parseInt(cb.dataset.g), s: parseInt(cb.dataset.s), ss: parseInt(cb.dataset.ss), l: parseInt(cb.dataset.l) }));
         targets.sort((a, b) => b.l - a.l);
-        
         targets.forEach(t => data[t.g].subs[t.s].subs[t.ss].links.splice(t.l, 1));
         save(); renderLinks(); clearBulkSelect();
     }
 
     function openBulkMoveModal() {
         if(data.length === 0 || data[0].subs.length === 0 || data[0].subs[0].subs.length === 0) return alert("移動先の小グループがありません。先にグループを作成してください！");
-        
-        let gHtml = '';
-        data.forEach((g, i) => gHtml += `<option value="${i}">${g.title}</option>`);
-        document.getElementById('bm-g').innerHTML = gHtml;
-        updateBmS();
-        toggleModal('bulkMoveModal');
+        let gHtml = ''; data.forEach((g, i) => gHtml += `<option value="${i}">${g.title}</option>`); document.getElementById('bm-g').innerHTML = gHtml; updateBmS(); toggleModal('bulkMoveModal');
     }
-
     function updateBmS() {
-        const gIdx = parseInt(document.getElementById('bm-g').value);
-        let sHtml = '';
-        if(data[gIdx] && data[gIdx].subs) {
-            data[gIdx].subs.forEach((s, i) => sHtml += `<option value="${i}">${s.title}</option>`);
-        }
-        document.getElementById('bm-s').innerHTML = sHtml;
-        updateBmSS();
+        const gIdx = parseInt(document.getElementById('bm-g').value); let sHtml = '';
+        if(data[gIdx] && data[gIdx].subs) { data[gIdx].subs.forEach((s, i) => sHtml += `<option value="${i}">${s.title}</option>`); } document.getElementById('bm-s').innerHTML = sHtml; updateBmSS();
     }
-
     function updateBmSS() {
-        const gIdx = parseInt(document.getElementById('bm-g').value);
-        const sIdx = parseInt(document.getElementById('bm-s').value);
-        let ssHtml = '';
-        if(data[gIdx] && data[gIdx].subs[sIdx] && data[gIdx].subs[sIdx].subs) {
-            data[gIdx].subs[sIdx].subs.forEach((ss, i) => ssHtml += `<option value="${i}">${ss.title}</option>`);
-        }
-        document.getElementById('bm-ss').innerHTML = ssHtml;
+        const gIdx = parseInt(document.getElementById('bm-g').value); const sIdx = parseInt(document.getElementById('bm-s').value); let ssHtml = '';
+        if(data[gIdx] && data[gIdx].subs[sIdx] && data[gIdx].subs[sIdx].subs) { data[gIdx].subs[sIdx].subs.forEach((ss, i) => ssHtml += `<option value="${i}">${ss.title}</option>`); } document.getElementById('bm-ss').innerHTML = ssHtml;
     }
-
     function executeBulkMove() {
-        const tG = parseInt(document.getElementById('bm-g').value);
-        const tS = parseInt(document.getElementById('bm-s').value);
-        const tSS = parseInt(document.getElementById('bm-ss').value);
+        const tG = parseInt(document.getElementById('bm-g').value); const tS = parseInt(document.getElementById('bm-s').value); const tSS = parseInt(document.getElementById('bm-ss').value);
         if(isNaN(tG) || isNaN(tS) || isNaN(tSS)) return alert('移動先が正しく選択されていません');
-
-        const cbs = Array.from(document.querySelectorAll('.link-select-cb:checked'));
-        let targets = cbs.map(cb => ({ g: parseInt(cb.dataset.g), s: parseInt(cb.dataset.s), ss: parseInt(cb.dataset.ss), l: parseInt(cb.dataset.l) }));
-        // インデックスズレ防止のため l の降順ソート
-        targets.sort((a, b) => b.l - a.l);
-
-        let movedItems = [];
-        targets.forEach(t => {
-            const item = data[t.g].subs[t.s].subs[t.ss].links.splice(t.l, 1)[0];
-            movedItems.push(item);
-        });
-
-        // 抽出したものを元の並び順に戻して一気に追加
-        movedItems.reverse();
-        data[tG].subs[tS].subs[tSS].links.push(...movedItems);
-
+        const cbs = Array.from(document.querySelectorAll('.link-select-cb:checked')); let targets = cbs.map(cb => ({ g: parseInt(cb.dataset.g), s: parseInt(cb.dataset.s), ss: parseInt(cb.dataset.ss), l: parseInt(cb.dataset.l) })); targets.sort((a, b) => b.l - a.l);
+        let movedItems = []; targets.forEach(t => { const item = data[t.g].subs[t.s].subs[t.ss].links.splice(t.l, 1)[0]; movedItems.push(item); }); movedItems.reverse(); data[tG].subs[tS].subs[tSS].links.push(...movedItems);
         save(); renderLinks(); closeAllModals(); clearBulkSelect(); alert("移動が完了したよ！");
     }
 
-    /* ★ 修正：大グループの追加位置をスマートに */
-    function addGroup() { 
-        const newGroup = {title:"新グループ", subs:[]};
-        if(currentFilter === 'all') {
-            data.push(newGroup); 
-        } else {
-            // 表示している大グループの「直後」に追加して、そこへ移動
-            data.splice(currentFilter + 1, 0, newGroup);
-            currentFilter = currentFilter + 1;
-        }
-        renderLinks(); save(); 
-    }
+    function addGroup() { const newGroup = {title:"新グループ", subs:[]}; if(currentFilter === 'all') { data.push(newGroup); } else { data.splice(currentFilter + 1, 0, newGroup); currentFilter = currentFilter + 1; } renderLinks(); save(); }
 
-    /* 以下、既存機能 (省略・削除なし) */
     async function autoCategorizeLink() {
         const key = document.getElementById('geminiApiKey').value;
         if(!key) return alert("「🤖 Gemini司令室」タブで先にAPIキーを設定してね！");
-        
-        const url = prompt("追加したいURLを入力してね:");
-        if(!url) return;
-        const name = prompt("リンクの名前(サイト名)を入力してね:");
-        if(!name) return;
-
-        const btn = document.getElementById('ai-organize-btn');
-        const orgText = btn.innerText;
-        btn.innerText = "⏳ AIが分類中...";
-        btn.disabled = true;
+        const url = prompt("追加したいURLを入力してね:"); if(!url) return; const name = prompt("リンクの名前(サイト名)を入力してね:"); if(!name) return;
+        const btn = document.getElementById('ai-organize-btn'); const orgText = btn.innerText; btn.innerText = "⏳ AIが分類中..."; btn.disabled = true;
 
         try {
-            const structure = data.map((g, gi) => ({
-                gIdx: gi, title: g.title,
-                subs: g.subs.map((s, si) => ({
-                    sIdx: si, title: s.title,
-                    subs: s.subs.map((ss, ssi) => ({ ssIdx: ssi, title: ss.title }))
-                }))
-            }));
-
-            const promptStr = `以下のJSONは現在のリンク集のカテゴリ構造です：
-${JSON.stringify(structure)}
-            
-新しいリンク（名前: "${name}", URL: "${url}"）を追加します。
-最も内容が適している大グループ(gIdx)、中項目(sIdx)、小項目(ssIdx)のインデックス番号を判定し、以下の形式の純粋なJSONのみを出力してください（Markdown記法は不要）。
-{"gIdx": 0, "sIdx": 0, "ssIdx": 0}`;
-
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ contents: [{ parts: [{ text: promptStr }] }] })
-            });
-            const resData = await res.json();
-            if(resData.error) throw new Error(resData.error.message);
-            
-            let reply = resData.candidates[0].content.parts[0].text.trim();
-            reply = reply.replace(/```json/g, '').replace(/```/g, '').trim();
-            const result = JSON.parse(reply);
-            
-            if(data[result.gIdx] && data[result.gIdx].subs[result.sIdx] && data[result.gIdx].subs[result.sIdx].subs[result.ssIdx]) {
-                data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].links.push({name: name, url: url});
-                save(); renderLinks();
-                alert(`「${data[result.gIdx].title} > ${data[result.gIdx].subs[result.sIdx].title} > ${data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].title}」に分類したよ！`);
-            } else {
-                throw new Error("該当するカテゴリが見つからなかったよ");
-            }
-        } catch(err) {
-            alert("分類に失敗しちゃった。手動で追加してね！ エラー: " + err.message);
-        }
-        btn.innerText = orgText;
-        btn.disabled = false;
+            const structure = data.map((g, gi) => ({ gIdx: gi, title: g.title, subs: g.subs.map((s, si) => ({ sIdx: si, title: s.title, subs: s.subs.map((ss, ssi) => ({ ssIdx: ssi, title: ss.title })) })) }));
+            const promptStr = `以下のJSONは現在のリンク集のカテゴリ構造です：\n${JSON.stringify(structure)}\n新しいリンク（名前: "${name}", URL: "${url}"）を追加します。最も内容が適している大グループ(gIdx)、中項目(sIdx)、小項目(ssIdx)のインデックス番号を判定し、以下の形式の純粋なJSONのみを出力してください。\n{"gIdx": 0, "sIdx": 0, "ssIdx": 0}`;
+            // ★ モデルを 3 Flash Preview に変更
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: promptStr }] }] }) });
+            const resData = await res.json(); if(resData.error) throw new Error(resData.error.message);
+            let reply = resData.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '').trim(); const result = JSON.parse(reply);
+            if(data[result.gIdx] && data[result.gIdx].subs[result.sIdx] && data[result.gIdx].subs[result.sIdx].subs[result.ssIdx]) { data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].links.push({name: name, url: url}); save(); renderLinks(); alert(`「${data[result.gIdx].title} > ${data[result.gIdx].subs[result.sIdx].title} > ${data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].title}」に分類したよ！`); } else { throw new Error("該当するカテゴリが見つからなかったよ"); }
+        } catch(err) { alert("分類に失敗しちゃった。手裁で追加してね！ エラー: " + err.message); } btn.innerText = orgText; btn.disabled = false;
     }
 
     function dragToIntegration(e) { const url = e.currentTarget.dataset.url; const name = e.currentTarget.dataset.name; e.dataTransfer.setData('application/json', JSON.stringify({ url: url, name: name })); }
     function allowDrop(e) { e.preventDefault(); e.currentTarget.style.background = 'rgba(37, 99, 235, 0.1)'; }
+    
+    function createMultiFrame(url, name, scale = 1, width = '', height = '') {
+        const container = document.getElementById('multi-grid');
+        const frameWrap = document.createElement('div');
+        frameWrap.className = 'resizable-frame multi-frame-item';
+        frameWrap.dataset.url = url;
+        frameWrap.dataset.name = name;
+        if(width) frameWrap.style.width = width;
+        if(height) frameWrap.style.height = height;
+        
+        frameWrap.innerHTML = `
+            <div style="background:#f1f5f9; padding:5px 8px; font-size:0.8rem; font-weight:bold; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
+                <div style="display:flex; align-items:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:50%;">
+                    <span class="drag-handle multi-handle" style="margin-right:5px; cursor:grab; color:#94a3b8;">⠿</span>
+                    <span>${name}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <input type="range" class="multi-scale-slider" min="0.3" max="2" step="0.1" value="${scale}" oninput="const ifr=this.parentElement.parentElement.nextElementSibling; ifr.style.transform='scale('+this.value+')'; ifr.style.width=(100/this.value)+'%'; ifr.style.height=(100/this.value)+'%';" style="width:50px;">
+                    <button class="btn btn-danger btn-sm" style="padding:2px 6px;" onclick="this.parentElement.parentElement.parentElement.remove()">❌</button>
+                </div>
+            </div>
+            <iframe src="${url}" style="transform-origin: top left; width:${100/scale}%; height:${100/scale}%; transform:scale(${scale}); border:none;"></iframe>
+        `;
+        container.appendChild(frameWrap);
+    }
+
     function handleDrop(e) {
         e.preventDefault(); e.currentTarget.style.background = '';
         try {
             const info = JSON.parse(e.dataTransfer.getData('application/json'));
-            const container = document.getElementById('multi-grid');
-            const frameWrap = document.createElement('div');
-            frameWrap.className = 'resizable-frame';
-            frameWrap.innerHTML = `
-                <div style="background:#f1f5f9; padding:5px 8px; font-size:0.8rem; font-weight:bold; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
-                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:50%;">${info.name}</span>
-                    <div style="display:flex; align-items:center; gap:5px;">
-                        <input type="range" min="0.3" max="2" step="0.1" value="1" oninput="const ifr=this.parentElement.parentElement.nextElementSibling; ifr.style.transform='scale('+this.value+')'; ifr.style.width=(100/this.value)+'%'; ifr.style.height=(100/this.value)+'%';" style="width:50px;">
-                        <button class="btn btn-danger btn-sm" style="padding:2px 6px;" onclick="this.parentElement.parentElement.parentElement.remove()">❌</button>
-                    </div>
-                </div>
-                <iframe src="${info.url}" style="transform-origin: top left; width:100%; height:100%; border:none;"></iframe>
-            `;
-            container.appendChild(frameWrap);
+            createMultiFrame(info.url, info.name);
             switchTab('multi');
         } catch(err) {}
+    }
+    
+    function clearMultiGrid() {
+        if(confirm("統合画面のウィンドウをすべて閉じますか？")) {
+            document.getElementById('multi-grid').innerHTML = '';
+        }
+    }
+
+    function exportMultiJSON() {
+        const frames = [];
+        document.querySelectorAll('.multi-frame-item').forEach(el => {
+            const slider = el.querySelector('.multi-scale-slider');
+            frames.push({
+                url: el.dataset.url,
+                name: el.dataset.name,
+                scale: slider ? slider.value : 1,
+                width: el.style.width,
+                height: el.style.height
+            });
+        });
+        const blob = new Blob([JSON.stringify({multiFrames: frames})], {type: 'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'multi_screen_backup.json'; a.click();
+    }
+
+    function importMultiJSON(e) {
+        const r = new FileReader(); r.onload = (ev) => {
+            try {
+                const j = JSON.parse(ev.target.result);
+                if(j.multiFrames) {
+                    document.getElementById('multi-grid').innerHTML = ''; 
+                    j.multiFrames.forEach(f => {
+                        createMultiFrame(f.url, f.name, f.scale, f.width, f.height);
+                    });
+                    alert("統合画面を完全に復元したよ！");
+                } else {
+                    alert("統合画面のデータが見つからなかったよ。");
+                }
+            } catch(err) { alert("読み込みに失敗しました。"); }
+            e.target.value = '';
+        }; r.readAsText(e.target.files[0]);
     }
 
     function toggleEditMode() { 
@@ -695,77 +648,21 @@ ${JSON.stringify(structure)}
     function del(type, g, s, ss, l) { if(!confirm("消去？")) return; if(type==='g') { data.splice(g,1); if(currentFilter===g) currentFilter='all'; } else if(type==='s') data[g].subs.splice(s,1); else if(type==='ss') data[g].subs[s].subs.splice(ss,1); else if(type==='l') data[g].subs[s].subs[ss].links.splice(l,1); renderLinks(); save(); }
 
     async function shortenUrl() {
-        const url = document.getElementById('shorten-input').value;
-        if(!url) return alert('URLを入力してね！');
-        try {
-            const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`);
-            const data = await res.json();
-            if(data.shorturl) { document.getElementById('shorten-result').value = data.shorturl; } 
-            else { alert('短縮に失敗しました。正しいURLか確認してね。'); }
-        } catch(e) { alert('通信エラーが発生したよ。'); }
+        const url = document.getElementById('shorten-input').value; if(!url) return alert('URLを入力してね！');
+        try { const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`); const data = await res.json(); if(data.shorturl) { document.getElementById('shorten-result').value = data.shorturl; } else { alert('短縮に失敗しました。'); } } catch(e) { alert('通信エラーが発生したよ。'); }
     }
 
-    function generateQR() {
-        const text = document.getElementById('qr-gen-input').value;
-        const img = document.getElementById('qr-gen-img');
-        const placeholder = document.getElementById('qr-gen-placeholder');
-        if(!text) { img.style.display = 'none'; placeholder.style.display = 'inline'; return; }
-        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(text)}`;
-        img.style.display = 'block'; placeholder.style.display = 'none';
-    }
-
-    function readQR(e) {
-        const file = e.target.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.getElementById('qr-canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = img.width; canvas.height = img.height;
-                ctx.drawImage(img, 0, 0, img.width, img.height);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
-                if(code) { document.getElementById('qr-read-result').value = code.data; } 
-                else { document.getElementById('qr-read-result').value = 'QRコードが見つかりませんでした。'; }
-            };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
+    function generateQR() { const text = document.getElementById('qr-gen-input').value; const img = document.getElementById('qr-gen-img'); const placeholder = document.getElementById('qr-gen-placeholder'); if(!text) { img.style.display = 'none'; placeholder.style.display = 'inline'; return; } img.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(text)}`; img.style.display = 'block'; placeholder.style.display = 'none'; }
+    function readQR(e) { const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = (event) => { const img = new Image(); img.onload = () => { const canvas = document.getElementById('qr-canvas'); const ctx = canvas.getContext('2d'); canvas.width = img.width; canvas.height = img.height; ctx.drawImage(img, 0, 0, img.width, img.height); const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); const code = jsQR(imageData.data, imageData.width, imageData.height); if(code) { document.getElementById('qr-read-result').value = code.data; } else { document.getElementById('qr-read-result').value = 'QRコードが見つかりませんでした。'; } }; img.src = event.target.result; }; reader.readAsDataURL(file); }
 
     function renderExcel() {
-        const table = document.getElementById('excelTable'); table.innerHTML = '';
-        let head = '<tr><th></th>';
-        for(let j=0; j<excelData[0].length; j++) head += `<th>${String.fromCharCode(65+j)}</th>`;
-        table.innerHTML = head + '</tr>';
-        excelData.forEach((row, i) => {
-            const tr = document.createElement('tr'); tr.innerHTML = `<th>${i+1}</th>`;
-            row.forEach((cell, j) => {
-                const td = document.createElement('td'); td.contentEditable = true;
-                if(cell.startsWith('=')) { td.innerText = solveExcel(cell.substring(1)); td.style.color = 'blue'; } else { td.innerText = cell; }
-                td.onfocus = () => { if(cell.startsWith('=')) td.innerText = cell; };
-                td.onblur = (e) => { excelData[i][j] = e.target.innerText; saveExcel(); renderExcel(); };
-                tr.appendChild(td);
-            });
-            table.appendChild(tr);
-        });
+        const table = document.getElementById('excelTable'); table.innerHTML = ''; let head = '<tr><th></th>'; for(let j=0; j<excelData[0].length; j++) head += `<th>${String.fromCharCode(65+j)}</th>`; table.innerHTML = head + '</tr>';
+        excelData.forEach((row, i) => { const tr = document.createElement('tr'); tr.innerHTML = `<th>${i+1}</th>`; row.forEach((cell, j) => { const td = document.createElement('td'); td.contentEditable = true; if(cell.startsWith('=')) { td.innerText = solveExcel(cell.substring(1)); td.style.color = 'blue'; } else { td.innerText = cell; } td.onfocus = () => { if(cell.startsWith('=')) td.innerText = cell; }; td.onblur = (e) => { excelData[i][j] = e.target.innerText; saveExcel(); renderExcel(); }; tr.appendChild(td); }); table.appendChild(tr); });
     }
     function solveExcel(formula) {
         try {
-            let f = formula.toUpperCase();
-            f = f.replace(/SUM\(([A-Z][0-9]+):([A-Z][0-9]+)\)/g, (match, start, end) => {
-                let sc = start.charCodeAt(0)-65, sr = parseInt(start.substring(1))-1, ec = end.charCodeAt(0)-65, er = parseInt(end.substring(1))-1, sum = 0;
-                for(let r=Math.min(sr,er); r<=Math.max(sr,er); r++) for(let c=Math.min(sc,ec); c<=Math.max(sc,ec); c++) {
-                    let v = excelData[r][c]; if(v.startsWith('=')) v = solveExcel(v.substring(1)); sum += parseFloat(v) || 0;
-                } return sum;
-            });
-            let res = f.replace(/[A-Z][0-9]+/g, (m) => {
-                let c=m.charCodeAt(0)-65, r=parseInt(m.substring(1))-1;
-                let v=excelData[r][c]; return v.startsWith('=') ? solveExcel(v.substring(1)) : (parseFloat(v)||0);
-            });
-            return new Function(`return (${res})`)();
+            let f = formula.toUpperCase(); f = f.replace(/SUM\(([A-Z][0-9]+):([A-Z][0-9]+)\)/g, (match, start, end) => { let sc = start.charCodeAt(0)-65, sr = parseInt(start.substring(1))-1, ec = end.charCodeAt(0)-65, er = parseInt(end.substring(1))-1, sum = 0; for(let r=Math.min(sr,er); r<=Math.max(sr,er); r++) for(let c=Math.min(sc,ec); c<=Math.max(sc,ec); c++) { let v = excelData[r][c]; if(v.startsWith('=')) v = solveExcel(v.substring(1)); sum += parseFloat(v) || 0; } return sum; });
+            let res = f.replace(/[A-Z][0-9]+/g, (m) => { let c=m.charCodeAt(0)-65, r=parseInt(m.substring(1))-1; let v=excelData[r][c]; return v.startsWith('=') ? solveExcel(v.substring(1)) : (parseFloat(v)||0); }); return new Function(`return (${res})`)();
         } catch(e) { return "#ERR!"; }
     }
     function addExcelRow() { excelData.push(Array(excelData[0].length).fill('')); renderExcel(); }
@@ -775,117 +672,30 @@ ${JSON.stringify(structure)}
     function clearExcel() { if(confirm("消去？")) { excelData=Array(10).fill().map(()=>Array(10).fill('')); renderExcel(); saveExcel(); } }
     function saveExcel() { localStorage.setItem('grandExcel', JSON.stringify(excelData)); }
 
-    function executeHikaku() {
-        const s1 = document.getElementById('ss1').value, s2 = document.getElementById('ss2').value;
-        let mC = []; diffEngine(s1, s2, mC);
-        let html = "<table>"; mC.join("").split("\n").forEach(row => html += `<tr><td>${row}</td><td>${row}</td></tr>`);
-        document.getElementById('diff-result-area').innerHTML = html + "</table>";
-    }
-    function diffEngine(c1r, c2r, mC) {
-        let A=c1r.split(''), B=c2r.split(''), M=A.length, N=B.length, sw=false;
-        if(N > M) { [A,B]=[B,A]; [M,N]=[N,M]; sw=true; }
-        let offset=N, delta=M-N, size=M+N+1, fp=Array(size).fill().map(()=>({y:null, tree:null}));
-        const snake = (k) => {
-            let cur=fp[k+offset];
-            if(k===-N){ let d=fp[k+1+offset]; cur.y=d.y+1; cur.tree={type:'+',prev:d.tree}; }
-            else if(k===M){ let s=fp[k-1+offset]; cur.y=s.y; cur.tree={type:'-',prev:s.tree}; }
-            else { let s=fp[k-1+offset], d=fp[k+1+offset]; if(s.y===null&&d.y===null) cur.y=0; else if(d.y===null||s.y>d.y){ cur.y=s.y; cur.tree={type:'-',prev:s.tree}; } else { cur.y=d.y+1; cur.tree={type:'+',prev:d.tree}; } }
-            let y=cur.y, x=y+k; while(x<M && y<N && A[x]===B[y]){ cur.tree={type:'|',prev:cur.tree}; x++; y++; } cur.y=y;
-        };
-        let p=-1; while(fp[delta+offset].y<N){ p++; for(let k=-p; k<delta; k++) snake(k); for(let k=delta+p; k>delta; k--) snake(k); snake(delta); }
-        let node=fp[delta+offset].tree, aIdx=M-1, bIdx=N-1;
-        while(node){
-            if(node.type==='+') mC.unshift(`<em class="${sw?'c1':'c2'}">${B[bIdx--]}</em>`);
-            else if(node.type==='-') mC.unshift(`<em class="${sw?'c2':'c1'}">${A[aIdx--]}</em>`);
-            else { mC.unshift(A[aIdx--]); bIdx--; } node=node.prev;
-        }
-    }
+    function executeHikaku() { const s1 = document.getElementById('ss1').value, s2 = document.getElementById('ss2').value; let mC = []; diffEngine(s1, s2, mC); let html = "<table>"; mC.join("").split("\n").forEach(row => html += `<tr><td>${row}</td><td>${row}</td></tr>`); document.getElementById('diff-result-area').innerHTML = html + "</table>"; }
+    function diffEngine(c1r, c2r, mC) { let A=c1r.split(''), B=c2r.split(''), M=A.length, N=B.length, sw=false; if(N > M) { [A,B]=[B,A]; [M,N]=[N,M]; sw=true; } let offset=N, delta=M-N, size=M+N+1, fp=Array(size).fill().map(()=>({y:null, tree:null})); const snake = (k) => { let cur=fp[k+offset]; if(k===-N){ let d=fp[k+1+offset]; cur.y=d.y+1; cur.tree={type:'+',prev:d.tree}; } else if(k===M){ let s=fp[k-1+offset]; cur.y=s.y; cur.tree={type:'-',prev:s.tree}; } else { let s=fp[k-1+offset], d=fp[k+1+offset]; if(s.y===null&&d.y===null) cur.y=0; else if(d.y===null||s.y>d.y){ cur.y=s.y; cur.tree={type:'-',prev:s.tree}; } else { cur.y=d.y+1; cur.tree={type:'+',prev:d.tree}; } } let y=cur.y, x=y+k; while(x<M && y<N && A[x]===B[y]){ cur.tree={type:'|',prev:cur.tree}; x++; y++; } cur.y=y; }; let p=-1; while(fp[delta+offset].y<N){ p++; for(let k=-p; k<delta; k++) snake(k); for(let k=delta+p; k>delta; k--) snake(k); snake(delta); } let node=fp[delta+offset].tree, aIdx=M-1, bIdx=N-1; while(node){ if(node.type==='+') mC.unshift(`<em class="${sw?'c1':'c2'}">${B[bIdx--]}</em>`); else if(node.type==='-') mC.unshift(`<em class="${sw?'c2':'c1'}">${A[aIdx--]}</em>`); else { mC.unshift(A[aIdx--]); bIdx--; } node=node.prev; } }
 
-    function handleAiFile(e) {
-        const file = e.target.files[0];
-        if(!file) return;
-        attachedFile = file;
-        const list = document.getElementById('gemini-file-list');
-        list.innerHTML = `<div class="file-preview">📄 ${file.name} (${Math.round(file.size/1024)}KB) <button onclick="removeAttachedFile()" style="border:none; background:none; cursor:pointer;">❌</button></div>`;
-    }
+    function handleAiFile(e) { const file = e.target.files[0]; if(!file) return; attachedFile = file; const list = document.getElementById('gemini-file-list'); list.innerHTML = `<div class="file-preview">📄 ${file.name} (${Math.round(file.size/1024)}KB) <button onclick="removeAttachedFile()" style="border:none; background:none; cursor:pointer;">❌</button></div>`; }
     function removeAttachedFile() { attachedFile = null; document.getElementById('gemini-file-list').innerHTML = ''; document.getElementById('ai-file-input').value = ''; }
 
     async function sendGeminiChat() {
-        const key = document.getElementById('geminiApiKey').value;
-        const input = document.getElementById('geminiInput');
-        const msgArea = document.getElementById('gemini-chat-area');
-        const msg = input.value;
-        if(!msg && !attachedFile) return;
-        if(!key) { alert("APIキーを入力してください！"); return; }
-        
+        const key = document.getElementById('geminiApiKey').value; const input = document.getElementById('geminiInput'); const msgArea = document.getElementById('gemini-chat-area'); const msg = input.value;
+        if(!msg && !attachedFile) return; if(!key) { alert("APIキーを入力してください！"); return; }
         let userMsgHtml = `<div style="text-align:right; margin:10px 0;"><span style="background:var(--primary); color:white; padding:10px 15px; border-radius:15px; display:inline-block; max-width:80%; word-break:break-word;">${msg}`;
-        if(attachedFile) userMsgHtml += `<br><small style="opacity:0.8;">📎 ${attachedFile.name}</small>`;
-        userMsgHtml += `</span></div>`;
-        msgArea.innerHTML += userMsgHtml;
-        input.value = '';
-        msgArea.scrollTop = msgArea.scrollHeight;
-
-        const loadingId = "load-" + Date.now();
-        msgArea.innerHTML += `<div id="${loadingId}" style="text-align:left; margin:10px 0;"><span style="background:var(--panel); border:1px solid var(--border); padding:10px 15px; border-radius:15px; display:inline-block;">AIが思考中...</span></div>`;
-        
-        try {
-            let parts = [{ text: msg }];
-            if(attachedFile) {
-                const base64Data = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.readAsDataURL(attachedFile);
-                });
-                parts.push({ inline_data: { mime_type: attachedFile.type, data: base64Data } });
-            }
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ contents: [{ parts: parts }] })
-            });
-            const resData = await res.json();
-            document.getElementById(loadingId).remove();
-            removeAttachedFile();
-            if(resData.error) throw new Error(resData.error.message);
-            const reply = resData.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
-            msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:var(--panel); border:1px solid var(--border); padding:10px 15px; border-radius:15px; display:inline-block; max-width:80%; line-height:1.5;">${reply}</span></div>`;
-        } catch(e) {
-            if(document.getElementById(loadingId)) document.getElementById(loadingId).remove();
-            msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:#fee2e2; color:red; padding:10px; border-radius:10px; display:inline-block;">エラー: ${e.message}</span></div>`;
-        }
-        msgArea.scrollTop = msgArea.scrollHeight;
+        if(attachedFile) userMsgHtml += `<br><small style="opacity:0.8;">📎 ${attachedFile.name}</small>`; userMsgHtml += `</span></div>`; msgArea.innerHTML += userMsgHtml; input.value = ''; msgArea.scrollTop = msgArea.scrollHeight;
+        const loadingId = "load-" + Date.now(); msgArea.innerHTML += `<div id="${loadingId}" style="text-align:left; margin:10px 0;"><span style="background:var(--panel); border:1px solid var(--border); padding:10px 15px; border-radius:15px; display:inline-block;">AIが思考中...</span></div>`;
+        try { let parts = [{ text: msg }]; if(attachedFile) { const base64Data = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(attachedFile); }); parts.push({ inline_data: { mime_type: attachedFile.type, data: base64Data } }); } 
+        // ★ モデルを 3 Flash Preview に変更
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: parts }] }) }); const resData = await res.json(); document.getElementById(loadingId).remove(); removeAttachedFile(); if(resData.error) throw new Error(resData.error.message); const reply = resData.candidates[0].content.parts[0].text.replace(/\n/g, '<br>'); msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:var(--panel); border:1px solid var(--border); padding:10px 15px; border-radius:15px; display:inline-block; max-width:80%; line-height:1.5;">${reply}</span></div>`; } catch(e) { if(document.getElementById(loadingId)) document.getElementById(loadingId).remove(); msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:#fee2e2; color:red; padding:10px; border-radius:10px; display:inline-block;">エラー: ${e.message}</span></div>`; } msgArea.scrollTop = msgArea.scrollHeight;
     }
 
     function addTemplate() { tpls.push({title:"定型文", color:"", body:"【{{項目}}】内容"}); renderTemplates(); localStorage.setItem('grandTpls', JSON.stringify(tpls)); }
-    
     async function generateTplWithAI(e) {
-        const key = document.getElementById('geminiApiKey').value;
-        const promptStr = document.getElementById('aiTplInput').value;
-        if(!promptStr) { alert("どんなテンプレを作りたいか入力してね！(例: 会議の議事録)"); return; }
-        if(!key) { alert("APIキーを「🤖Gemini司令室」タブで先に入力してね！"); return; }
-        
-        const btn = e.target.tagName === 'BUTTON' ? e.target : e.target.nextElementSibling;
-        const orgText = btn.innerText;
-        btn.innerText = "⏳ 作成中..."; btn.disabled = true;
-
-        try {
-            const msg = `次の用途で使える実用的なビジネス/プライベートのテンプレートを作成してください: 「${promptStr}」。
-ルール：
-1. 後から入力する可変部分は必ず {{変数名}} の形式にしてください（例: {{宛名}}, {{日時}}, {{自分の名前}} など）。
-2. 余計な挨拶や解説（「以下がテンプレートです」など）は一切省いて、テンプレートの本文のテキストデータのみを出力してください。`;
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ contents: [{ parts: [{ text: msg }] }] })
-            });
-            const resData = await res.json();
-            if(resData.error) throw new Error(resData.error.message);
-            const reply = resData.candidates[0].content.parts[0].text.trim();
-            
-            tpls.push({title: promptStr + " (AI生成)", color: "#f0fdf4", body: reply});
-            renderTemplates(); localStorage.setItem('grandTpls', JSON.stringify(tpls));
-            document.getElementById('aiTplInput').value = '';
-            alert("AIがテンプレを作成したよ！");
-        } catch(err) { alert("エラーが発生したよ: " + err.message); }
-        btn.innerText = orgText; btn.disabled = false;
+        const key = document.getElementById('geminiApiKey').value; const promptStr = document.getElementById('aiTplInput').value; if(!promptStr) { alert("どんなテンプレを作りたいか入力してね！(例: 会議の議事録)"); return; } if(!key) { alert("APIキーを「🤖Gemini司令室」タブで先に入力してね！"); return; }
+        const btn = e.target.tagName === 'BUTTON' ? e.target : e.target.nextElementSibling; const orgText = btn.innerText; btn.innerText = "⏳ 作成中..."; btn.disabled = true;
+        try { const msg = `次の用途で使える実用的なビジネス/プライベートのテンプレートを作成してください: 「${promptStr}」。\nルール：\n1. 後から入力する可変部分は必ず {{変数名}} の形式にしてください（例: {{宛名}}, {{日時}}, {{自分の名前}} など）。\n2. 余計な挨拶や解説（「以下がテンプレートです」など）は一切省いて、テンプレートの本文のテキストデータのみを出力してください。`; 
+        // ★ モデルを 3 Flash Preview に変更
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: msg }] }] }) }); const resData = await res.json(); if(resData.error) throw new Error(resData.error.message); const reply = resData.candidates[0].content.parts[0].text.trim(); tpls.push({title: promptStr + " (AI生成)", color: "#f0fdf4", body: reply}); renderTemplates(); localStorage.setItem('grandTpls', JSON.stringify(tpls)); document.getElementById('aiTplInput').value = ''; alert("AIがテンプレを作成したよ！"); } catch(err) { alert("エラーが発生したよ: " + err.message); } btn.innerText = orgText; btn.disabled = false;
     }
 
     function renderTemplates() {
@@ -893,10 +703,15 @@ ${JSON.stringify(structure)}
         tpls.forEach((t, i) => {
             const vars = [...new Set(t.body.match(/{{(.*?)}}/g) || [])];
             let inps = vars.map(v => `<div style="margin-bottom:5px;"><input placeholder="${v}" oninput="fillTpl(${i})" class="edit-input"></div>`).join('');
-            const card = document.createElement('div'); card.className = 'sub-group'; if(t.color) card.style.backgroundColor = t.color;
+            const card = document.createElement('div'); card.className = 'sub-group'; 
+            card.style.flex = "1 1 300px";
+            if(t.color) card.style.backgroundColor = t.color;
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <input value="${t.title}" class="edit-input" style="font-weight:bold; width:60%; background:rgba(255,255,255,0.6);" oninput="tpls[${i}].title=this.value; localStorage.setItem('grandTpls', JSON.stringify(tpls))">
+                    <div style="display:flex; align-items:center; width:60%;">
+                        <span class="drag-handle tpl-handle" style="margin-right:10px;">⠿</span>
+                        <input value="${t.title}" class="edit-input" style="font-weight:bold; background:rgba(255,255,255,0.6);" oninput="tpls[${i}].title=this.value; localStorage.setItem('grandTpls', JSON.stringify(tpls))">
+                    </div>
                     <div style="display:flex; gap:5px;">
                         <input type="color" class="color-picker" value="${t.color || '#ffffff'}" onchange="tpls[${i}].color=this.value; localStorage.setItem('grandTpls', JSON.stringify(tpls)); renderTemplates();">
                         <button class="btn btn-danger btn-sm" onclick="tpls.splice(${i},1); renderTemplates(); localStorage.setItem('grandTpls', JSON.stringify(tpls))">削除</button>
@@ -912,64 +727,61 @@ ${JSON.stringify(structure)}
             wrap.appendChild(card);
         });
     }
-    function fillTpl(i) {
-        let res = tpls[i].body; const inps = document.querySelectorAll(`#tpl-container .sub-group:nth-child(${i+1}) input[placeholder]`);
-        inps.forEach(inp => res = res.replaceAll(inp.placeholder, inp.value || inp.placeholder));
-        document.getElementById(`out-${i}`).innerText = res;
-    }
+    function fillTpl(i) { let res = tpls[i].body; const inps = document.querySelectorAll(`#tpl-container .sub-group:nth-child(${i+1}) input[placeholder]`); inps.forEach(inp => res = res.replaceAll(inp.placeholder, inp.value || inp.placeholder)); document.getElementById(`out-${i}`).innerText = res; }
     function copyTpl(i, btn) { navigator.clipboard.writeText(document.getElementById(`out-${i}`).innerText).then(() => { const org = btn.innerText; btn.innerText = "✅"; setTimeout(() => btn.innerText = org, 1500); }); }
 
     function exportTplsJSON() { const blob = new Blob([JSON.stringify({tpls})], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_templates_only.json'; a.click(); }
-    function importTplsJSON(e) {
-        const r = new FileReader(); r.onload = (ev) => {
-            try {
-                const j = JSON.parse(ev.target.result);
-                if(j.tpls) { tpls = tpls.concat(j.tpls); localStorage.setItem('grandTpls', JSON.stringify(tpls)); renderTemplates(); alert("テンプレートを追加したよ！"); }
-            } catch(err) { alert("読み込みに失敗しました。"); } e.target.value = '';
-        }; r.readAsText(e.target.files[0]);
-    }
+    function importTplsJSON(e) { const r = new FileReader(); r.onload = (ev) => { try { const j = JSON.parse(ev.target.result); if(j.tpls) { tpls = tpls.concat(j.tpls); localStorage.setItem('grandTpls', JSON.stringify(tpls)); renderTemplates(); alert("テンプレートを追加したよ！"); } } catch(err) { alert("読み込みに失敗しました。"); } e.target.value = ''; }; r.readAsText(e.target.files[0]); }
 
-    function convertHTML(e) {
-        Array.from(e.target.files).forEach(f => {
-            const r = new FileReader(); r.onload = (ev) => {
-                const doc = new DOMParser().parseFromString(ev.target.result, 'text/html');
-                const links = Array.from(doc.querySelectorAll('a')).map(a => ({ name: a.innerText.trim() || 'NoName', url: a.href })).filter(l => l.url.startsWith('http') || l.url.startsWith('file'));
-                if(links.length > 0) { data.push({ title: "統合:" + f.name, subs: [{ title: "抽出リンク", subs: [{ title: "インポート", links: links }] }] }); renderLinks(); save(); }
-            }; r.readAsText(f);
-        });
-        alert("統合完了"); closeAllModals();
-    }
+    function convertHTML(e) { Array.from(e.target.files).forEach(f => { const r = new FileReader(); r.onload = (ev) => { const doc = new DOMParser().parseFromString(ev.target.result, 'text/html'); const links = Array.from(doc.querySelectorAll('a')).map(a => ({ name: a.innerText.trim() || 'NoName', url: a.href })).filter(l => l.url.startsWith('http') || l.url.startsWith('file')); if(links.length > 0) { data.push({ title: "統合:" + f.name, subs: [{ title: "抽出リンク", subs: [{ title: "インポート", links: links }] }] }); renderLinks(); save(); } }; r.readAsText(f); }); alert("統合完了"); closeAllModals(); }
     
-    // ★ 全体保存
+    // ★ 全データ保存に統合画面（multiFrames）を追加
     function exportJSON() { 
-        const memoVal = document.getElementById('memo-area').value;
-        const blob = new Blob([JSON.stringify({data, excelData, tpls, memo: memoVal})], {type: 'application/json'}); 
+        const memoVal = document.getElementById('memo-area').value; 
+        
+        // 統合画面のデータも取得
+        const frames = [];
+        document.querySelectorAll('.multi-frame-item').forEach(el => {
+            const slider = el.querySelector('.multi-scale-slider');
+            frames.push({
+                url: el.dataset.url,
+                name: el.dataset.name,
+                scale: slider ? slider.value : 1,
+                width: el.style.width,
+                height: el.style.height
+            });
+        });
+
+        const blob = new Blob([JSON.stringify({data, excelData, tpls, memo: memoVal, multiFrames: frames})], {type: 'application/json'}); 
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_backup.json'; a.click(); 
     }
-    
-    // ★ 全体読込 (バグ修正済: localStorageへの保存処理を追加)
-    function importJSON(e) {
-        const r = new FileReader(); r.onload = (ev) => {
+
+    // ★ 全データ復元で統合画面（multiFrames）も復元するように追加
+    function importJSON(e) { 
+        const r = new FileReader(); 
+        r.onload = (ev) => { 
             const j = JSON.parse(ev.target.result); 
             if(j.data) data = j.data; 
             if(j.excelData) excelData = j.excelData; 
+            if(j.tpls) { tpls = j.tpls; localStorage.setItem('grandTpls', JSON.stringify(tpls)); } 
+            if(j.memo !== undefined) { document.getElementById('memo-area').value = j.memo; localStorage.setItem('grandMemo', j.memo); } 
             
-            if(j.tpls) {
-                tpls = j.tpls; 
-                localStorage.setItem('grandTpls', JSON.stringify(tpls)); // ← ここをしっかり修正！
+            // 統合画面の復元
+            if(j.multiFrames) {
+                document.getElementById('multi-grid').innerHTML = '';
+                j.multiFrames.forEach(f => {
+                    createMultiFrame(f.url, f.name, f.scale, f.width, f.height);
+                });
             }
-            
-            if(j.memo !== undefined) { 
-                document.getElementById('memo-area').value = j.memo; 
-                localStorage.setItem('grandMemo', j.memo); 
-            }
-            
+
             renderLinks(); renderExcel(); renderTemplates(); save(); 
-            alert("復元完了！テンプレもバッチリ読み込んだよ！");
-        }; r.readAsText(e.target.files[0]);
+            alert("全データの復元完了！統合画面も元通りだよ！"); 
+        }; 
+        r.readAsText(e.target.files[0]); 
     }
 
-    function gate() { const p = prompt("キーワード:"); if(p) location.href = p + ".html"; }
+    function gate() { const p = prompt("キーワード:"); if(p) window.open(p + ".html", "_blank"); }
+    
     function toggleTheme() { const t = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light'; document.documentElement.setAttribute('data-theme', t); localStorage.setItem('grandTheme', t); }
     function toggleModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
     function closeAllModals() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); document.getElementById('overlay').style.display='none'; }
