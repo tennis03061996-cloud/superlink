@@ -394,6 +394,8 @@
 
             if (currentFilter !== 'all' && currentFilter !== gIdx) return;
 
+            let gHasLinks = false; // ★ 検索用フラグ
+
             const gDiv = document.createElement('div');
             gDiv.className = 'group-section';
             gDiv.style.backgroundColor = g.color || 'transparent';
@@ -412,6 +414,8 @@
             
             const subWrap = gDiv.querySelector('.sub-container');
             g.subs.forEach((s, sIdx) => {
+                let sHasLinks = false; // ★ 検索用フラグ
+
                 const sDiv = document.createElement('div');
                 sDiv.className = 'sub-group';
                 if(s.color) sDiv.style.backgroundColor = s.color;
@@ -430,6 +434,8 @@
 
                 const ssWrap = sDiv.querySelector('.ss-container');
                 s.subs.forEach((ss, ssIdx) => {
+                    let ssHasLinks = false; // ★ 検索用フラグ
+
                     const ssDiv = document.createElement('div');
                     ssDiv.className = 'sub-sub-group';
                     if(ss.color) ssDiv.style.backgroundColor = ss.color;
@@ -448,7 +454,11 @@
 
                     const grid = ssDiv.querySelector('.link-grid');
                     ss.links.forEach((l, lIdx) => {
-                        if (term && !l.name.toLowerCase().includes(term) && !l.url.toLowerCase().includes(term)) return;
+                        const match = (!term || l.name.toLowerCase().includes(term) || l.url.toLowerCase().includes(term));
+                        if (!match && !isEditMode) return; // ★ 検索にヒットしないリンクを隠す
+
+                        ssHasLinks = true;
+
                         const cardWrap = document.createElement('div');
                         cardWrap.style.position = 'relative'; 
                         let icon = `https://www.google.com/s2/favicons?domain=${l.url.split('/')[2]}`;
@@ -468,10 +478,19 @@
                         `;
                         grid.appendChild(cardWrap);
                     });
+                    
+                    // ★ 検索時、該当リンクがない空のグループは表示しない
+                    if (term && !ssHasLinks && !isEditMode) return; 
+                    sHasLinks = true;
                     ssWrap.appendChild(ssDiv);
                 });
+                
+                if (term && !sHasLinks && !isEditMode) return; 
+                gHasLinks = true;
                 subWrap.appendChild(sDiv);
             });
+            
+            if (term && !gHasLinks && !isEditMode) return; 
             area.appendChild(gDiv);
         });
         if(isEditMode) setupSortable();
@@ -539,23 +558,6 @@
 
     function addGroup() { const newGroup = {title:"新グループ", subs:[]}; if(currentFilter === 'all') { data.push(newGroup); } else { data.splice(currentFilter + 1, 0, newGroup); currentFilter = currentFilter + 1; } renderLinks(); save(); }
 
-    async function autoCategorizeLink() {
-        const key = document.getElementById('geminiApiKey').value;
-        if(!key) return alert("「🤖 Gemini司令室」タブで先にAPIキーを設定してね！");
-        const url = prompt("追加したいURLを入力してね:"); if(!url) return; const name = prompt("リンクの名前(サイト名)を入力してね:"); if(!name) return;
-        const btn = document.getElementById('ai-organize-btn'); const orgText = btn.innerText; btn.innerText = "⏳ AIが分類中..."; btn.disabled = true;
-
-        try {
-            const structure = data.map((g, gi) => ({ gIdx: gi, title: g.title, subs: g.subs.map((s, si) => ({ sIdx: si, title: s.title, subs: s.subs.map((ss, ssi) => ({ ssIdx: ssi, title: ss.title })) })) }));
-            const promptStr = `以下のJSONは現在のリンク集のカテゴリ構造です：\n${JSON.stringify(structure)}\n新しいリンク（名前: "${name}", URL: "${url}"）を追加します。最も内容が適している大グループ(gIdx)、中項目(sIdx)、小項目(ssIdx)のインデックス番号を判定し、以下の形式の純粋なJSONのみを出力してください。\n{"gIdx": 0, "sIdx": 0, "ssIdx": 0}`;
-            // ★ モデルを 3 Flash Preview に変更
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: promptStr }] }] }) });
-            const resData = await res.json(); if(resData.error) throw new Error(resData.error.message);
-            let reply = resData.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '').trim(); const result = JSON.parse(reply);
-            if(data[result.gIdx] && data[result.gIdx].subs[result.sIdx] && data[result.gIdx].subs[result.sIdx].subs[result.ssIdx]) { data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].links.push({name: name, url: url}); save(); renderLinks(); alert(`「${data[result.gIdx].title} > ${data[result.gIdx].subs[result.sIdx].title} > ${data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].title}」に分類したよ！`); } else { throw new Error("該当するカテゴリが見つからなかったよ"); }
-        } catch(err) { alert("分類に失敗しちゃった。手裁で追加してね！ エラー: " + err.message); } btn.innerText = orgText; btn.disabled = false;
-    }
-
     function dragToIntegration(e) { const url = e.currentTarget.dataset.url; const name = e.currentTarget.dataset.name; e.dataTransfer.setData('application/json', JSON.stringify({ url: url, name: name })); }
     function allowDrop(e) { e.preventDefault(); e.currentTarget.style.background = 'rgba(37, 99, 235, 0.1)'; }
     
@@ -603,13 +605,7 @@
         const frames = [];
         document.querySelectorAll('.multi-frame-item').forEach(el => {
             const slider = el.querySelector('.multi-scale-slider');
-            frames.push({
-                url: el.dataset.url,
-                name: el.dataset.name,
-                scale: slider ? slider.value : 1,
-                width: el.style.width,
-                height: el.style.height
-            });
+            frames.push({ url: el.dataset.url, name: el.dataset.name, scale: slider ? slider.value : 1, width: el.style.width, height: el.style.height });
         });
         const blob = new Blob([JSON.stringify({multiFrames: frames})], {type: 'application/json'});
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'multi_screen_backup.json'; a.click();
@@ -621,15 +617,10 @@
                 const j = JSON.parse(ev.target.result);
                 if(j.multiFrames) {
                     document.getElementById('multi-grid').innerHTML = ''; 
-                    j.multiFrames.forEach(f => {
-                        createMultiFrame(f.url, f.name, f.scale, f.width, f.height);
-                    });
+                    j.multiFrames.forEach(f => { createMultiFrame(f.url, f.name, f.scale, f.width, f.height); });
                     alert("統合画面を完全に復元したよ！");
-                } else {
-                    alert("統合画面のデータが見つからなかったよ。");
-                }
-            } catch(err) { alert("読み込みに失敗しました。"); }
-            e.target.value = '';
+                } else { alert("統合画面のデータが見つからなかったよ。"); }
+            } catch(err) { alert("読み込みに失敗しました。"); } e.target.value = '';
         }; r.readAsText(e.target.files[0]);
     }
 
@@ -685,16 +676,32 @@
         if(attachedFile) userMsgHtml += `<br><small style="opacity:0.8;">📎 ${attachedFile.name}</small>`; userMsgHtml += `</span></div>`; msgArea.innerHTML += userMsgHtml; input.value = ''; msgArea.scrollTop = msgArea.scrollHeight;
         const loadingId = "load-" + Date.now(); msgArea.innerHTML += `<div id="${loadingId}" style="text-align:left; margin:10px 0;"><span style="background:var(--panel); border:1px solid var(--border); padding:10px 15px; border-radius:15px; display:inline-block;">AIが思考中...</span></div>`;
         try { let parts = [{ text: msg }]; if(attachedFile) { const base64Data = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(attachedFile); }); parts.push({ inline_data: { mime_type: attachedFile.type, data: base64Data } }); } 
-        // ★ モデルを 3 Flash Preview に変更
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: parts }] }) }); const resData = await res.json(); document.getElementById(loadingId).remove(); removeAttachedFile(); if(resData.error) throw new Error(resData.error.message); const reply = resData.candidates[0].content.parts[0].text.replace(/\n/g, '<br>'); msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:var(--panel); border:1px solid var(--border); padding:10px 15px; border-radius:15px; display:inline-block; max-width:80%; line-height:1.5;">${reply}</span></div>`; } catch(e) { if(document.getElementById(loadingId)) document.getElementById(loadingId).remove(); msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:#fee2e2; color:red; padding:10px; border-radius:10px; display:inline-block;">エラー: ${e.message}</span></div>`; } msgArea.scrollTop = msgArea.scrollHeight;
     }
 
+    async function autoCategorizeLink() {
+        const key = document.getElementById('geminiApiKey').value;
+        if(!key) return alert("「🤖 Gemini司令室」タブで先にAPIキーを設定してね！");
+        const url = prompt("追加したいURLを入力してね:"); if(!url) return; const name = prompt("リンクの名前(サイト名)を入力してね:"); if(!name) return;
+        const btn = document.getElementById('ai-organize-btn'); const orgText = btn.innerText; btn.innerText = "⏳ AIが分類中..."; btn.disabled = true;
+
+        try {
+            const structure = data.map((g, gi) => ({ gIdx: gi, title: g.title, subs: g.subs.map((s, si) => ({ sIdx: si, title: s.title, subs: s.subs.map((ss, ssi) => ({ ssIdx: ssi, title: ss.title })) })) }));
+            const promptStr = `以下のJSONは現在のリンク集のカテゴリ構造です：\n${JSON.stringify(structure)}\n新しいリンク（名前: "${name}", URL: "${url}"）を追加します。最も内容が適している大グループ(gIdx)、中項目(sIdx)、小項目(ssIdx)のインデックス番号を判定し、以下の形式の純粋なJSONのみを出力してください。\n{"gIdx": 0, "sIdx": 0, "ssIdx": 0}`;
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: promptStr }] }] }) });
+            const resData = await res.json(); if(resData.error) throw new Error(resData.error.message);
+            let reply = resData.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '').trim(); const result = JSON.parse(reply);
+            if(data[result.gIdx] && data[result.gIdx].subs[result.sIdx] && data[result.gIdx].subs[result.sIdx].subs[result.ssIdx]) { data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].links.push({name: name, url: url}); save(); renderLinks(); alert(`「${data[result.gIdx].title} > ${data[result.gIdx].subs[result.sIdx].title} > ${data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].title}」に分類したよ！`); } else { throw new Error("該当するカテゴリが見つからなかったよ"); }
+        } catch(err) { alert("分類に失敗しちゃった。手動で追加してね！ エラー: " + err.message); } btn.innerText = orgText; btn.disabled = false;
+    }
+
+    // ★ テンプレ機能のアップデート (文字入力時のチラつき解消 ＆ {{}}ボタン追加)
     function addTemplate() { tpls.push({title:"定型文", color:"", body:"【{{項目}}】内容"}); renderTemplates(); localStorage.setItem('grandTpls', JSON.stringify(tpls)); }
+    
     async function generateTplWithAI(e) {
         const key = document.getElementById('geminiApiKey').value; const promptStr = document.getElementById('aiTplInput').value; if(!promptStr) { alert("どんなテンプレを作りたいか入力してね！(例: 会議の議事録)"); return; } if(!key) { alert("APIキーを「🤖Gemini司令室」タブで先に入力してね！"); return; }
         const btn = e.target.tagName === 'BUTTON' ? e.target : e.target.nextElementSibling; const orgText = btn.innerText; btn.innerText = "⏳ 作成中..."; btn.disabled = true;
         try { const msg = `次の用途で使える実用的なビジネス/プライベートのテンプレートを作成してください: 「${promptStr}」。\nルール：\n1. 後から入力する可変部分は必ず {{変数名}} の形式にしてください（例: {{宛名}}, {{日時}}, {{自分の名前}} など）。\n2. 余計な挨拶や解説（「以下がテンプレートです」など）は一切省いて、テンプレートの本文のテキストデータのみを出力してください。`; 
-        // ★ モデルを 3 Flash Preview に変更
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: msg }] }] }) }); const resData = await res.json(); if(resData.error) throw new Error(resData.error.message); const reply = resData.candidates[0].content.parts[0].text.trim(); tpls.push({title: promptStr + " (AI生成)", color: "#f0fdf4", body: reply}); renderTemplates(); localStorage.setItem('grandTpls', JSON.stringify(tpls)); document.getElementById('aiTplInput').value = ''; alert("AIがテンプレを作成したよ！"); } catch(err) { alert("エラーが発生したよ: " + err.message); } btn.innerText = orgText; btn.disabled = false;
     }
 
@@ -702,10 +709,12 @@
         const wrap = document.getElementById('tpl-container'); wrap.innerHTML = '';
         tpls.forEach((t, i) => {
             const vars = [...new Set(t.body.match(/{{(.*?)}}/g) || [])];
-            let inps = vars.map(v => `<div style="margin-bottom:5px;"><input placeholder="${v}" oninput="fillTpl(${i})" class="edit-input"></div>`).join('');
+            let inps = vars.map(v => `<div style="margin-bottom:5px;"><input placeholder="${v.slice(2, -2)}" oninput="fillTpl(${i})" class="edit-input"></div>`).join('');
             const card = document.createElement('div'); card.className = 'sub-group'; 
             card.style.flex = "1 1 300px";
             if(t.color) card.style.backgroundColor = t.color;
+            
+            // ★ 本文テキストエリアのoninput処理を変更し、ボタンを追加しました！
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                     <div style="display:flex; align-items:center; width:60%;">
@@ -717,8 +726,12 @@
                         <button class="btn btn-danger btn-sm" onclick="tpls.splice(${i},1); renderTemplates(); localStorage.setItem('grandTpls', JSON.stringify(tpls))">削除</button>
                     </div>
                 </div>
-                <textarea class="edit-input" style="height:80px; font-family:monospace; margin-bottom:10px; background:rgba(255,255,255,0.8);" oninput="tpls[${i}].body=this.value; localStorage.setItem('grandTpls', JSON.stringify(tpls)); renderTemplates()">${t.body}</textarea>
-                <div style="background:rgba(0,0,0,0.05); padding:10px; border-radius:8px; margin-bottom:10px;">${inps || '<p style="font-size:0.7rem;">{{文字}} を入れると入力欄が出ます</p>'}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                    <label style="font-size:0.7rem; font-weight:bold;">本文</label>
+                    <button class="btn btn-primary btn-sm" onclick="insertTplVar(${i})">＋ {{ }} を挿入</button>
+                </div>
+                <textarea id="tpl-body-${i}" class="edit-input" style="height:80px; font-family:monospace; margin-bottom:10px; background:rgba(255,255,255,0.8);" oninput="handleTplBodyChange(${i}, this)">${t.body}</textarea>
+                <div id="tpl-vars-${i}" style="background:rgba(0,0,0,0.05); padding:10px; border-radius:8px; margin-bottom:10px;">${inps || '<p style="font-size:0.7rem;">{{文字}} を入れると入力欄が出ます</p>'}</div>
                 <div style="position:relative;">
                     <button class="btn btn-success btn-sm" style="position:absolute; right:5px; top:5px;" onclick="copyTpl(${i}, this)">📋</button>
                     <pre id="out-${i}" style="background:#1e293b; color:#fff; padding:30px 10px 10px; border-radius:5px; white-space:pre-wrap; font-size:0.8rem; margin:0;">${t.body}</pre>
@@ -727,58 +740,108 @@
             wrap.appendChild(card);
         });
     }
-    function fillTpl(i) { let res = tpls[i].body; const inps = document.querySelectorAll(`#tpl-container .sub-group:nth-child(${i+1}) input[placeholder]`); inps.forEach(inp => res = res.replaceAll(inp.placeholder, inp.value || inp.placeholder)); document.getElementById(`out-${i}`).innerText = res; }
-    function copyTpl(i, btn) { navigator.clipboard.writeText(document.getElementById(`out-${i}`).innerText).then(() => { const org = btn.innerText; btn.innerText = "✅"; setTimeout(() => btn.innerText = org, 1500); }); }
 
+    // ★ テンプレの入力で画面が再描画されないようにする魔法
+    function handleTplBodyChange(i, el) {
+        tpls[i].body = el.value;
+        localStorage.setItem('grandTpls', JSON.stringify(tpls));
+        
+        const varsWrap = document.getElementById(`tpl-vars-${i}`);
+        const vars = [...new Set(tpls[i].body.match(/{{(.*?)}}/g) || [])];
+        const currentVars = Array.from(varsWrap.querySelectorAll('input')).map(inp => inp.placeholder);
+        const newVarsStr = vars.map(v => v.slice(2, -2));
+        
+        if (JSON.stringify(newVarsStr) !== JSON.stringify(currentVars)) {
+            let inps = vars.map(v => {
+                let cleanV = v.slice(2, -2);
+                return `<div style="margin-bottom:5px;"><input placeholder="${cleanV}" oninput="fillTpl(${i})" class="edit-input"></div>`;
+            }).join('');
+            varsWrap.innerHTML = inps || '<p style="font-size:0.7rem;">{{文字}} を入れると入力欄が出ます</p>';
+        }
+        fillTpl(i);
+    }
+
+    // ★ {{}}をボタン一発で挿入する魔法
+    function insertTplVar(i) {
+        const ta = document.getElementById(`tpl-body-${i}`);
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const text = ta.value;
+        ta.value = text.substring(0, start) + "{{}}" + text.substring(end);
+        ta.selectionStart = ta.selectionEnd = start + 2;
+        ta.focus();
+        handleTplBodyChange(i, ta);
+    }
+
+    function fillTpl(i) { 
+        let res = tpls[i].body; 
+        const inps = document.querySelectorAll(`#tpl-vars-${i} input[placeholder]`); 
+        inps.forEach(inp => res = res.replaceAll('{{' + inp.placeholder + '}}', inp.value || inp.placeholder)); 
+        document.getElementById(`out-${i}`).innerText = res; 
+    }
+    
+    function copyTpl(i, btn) { navigator.clipboard.writeText(document.getElementById(`out-${i}`).innerText).then(() => { const org = btn.innerText; btn.innerText = "✅"; setTimeout(() => btn.innerText = org, 1500); }); }
     function exportTplsJSON() { const blob = new Blob([JSON.stringify({tpls})], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_templates_only.json'; a.click(); }
     function importTplsJSON(e) { const r = new FileReader(); r.onload = (ev) => { try { const j = JSON.parse(ev.target.result); if(j.tpls) { tpls = tpls.concat(j.tpls); localStorage.setItem('grandTpls', JSON.stringify(tpls)); renderTemplates(); alert("テンプレートを追加したよ！"); } } catch(err) { alert("読み込みに失敗しました。"); } e.target.value = ''; }; r.readAsText(e.target.files[0]); }
 
-    function convertHTML(e) { Array.from(e.target.files).forEach(f => { const r = new FileReader(); r.onload = (ev) => { const doc = new DOMParser().parseFromString(ev.target.result, 'text/html'); const links = Array.from(doc.querySelectorAll('a')).map(a => ({ name: a.innerText.trim() || 'NoName', url: a.href })).filter(l => l.url.startsWith('http') || l.url.startsWith('file')); if(links.length > 0) { data.push({ title: "統合:" + f.name, subs: [{ title: "抽出リンク", subs: [{ title: "インポート", links: links }] }] }); renderLinks(); save(); } }; r.readAsText(f); }); alert("統合完了"); closeAllModals(); }
-    
-    // ★ 全データ保存に統合画面（multiFrames）を追加
-    function exportJSON() { 
-        const memoVal = document.getElementById('memo-area').value; 
+    // ★ AIを使ったHTMLファイルの自動振り分けインポート機能
+    async function convertHTML(e) { 
+        const key = document.getElementById('geminiApiKey').value;
+        const files = Array.from(e.target.files);
         
-        // 統合画面のデータも取得
-        const frames = [];
-        document.querySelectorAll('.multi-frame-item').forEach(el => {
-            const slider = el.querySelector('.multi-scale-slider');
-            frames.push({
-                url: el.dataset.url,
-                name: el.dataset.name,
-                scale: slider ? slider.value : 1,
-                width: el.style.width,
-                height: el.style.height
-            });
-        });
-
-        const blob = new Blob([JSON.stringify({data, excelData, tpls, memo: memoVal, multiFrames: frames})], {type: 'application/json'}); 
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_backup.json'; a.click(); 
-    }
-
-    // ★ 全データ復元で統合画面（multiFrames）も復元するように追加
-    function importJSON(e) { 
-        const r = new FileReader(); 
-        r.onload = (ev) => { 
-            const j = JSON.parse(ev.target.result); 
-            if(j.data) data = j.data; 
-            if(j.excelData) excelData = j.excelData; 
-            if(j.tpls) { tpls = j.tpls; localStorage.setItem('grandTpls', JSON.stringify(tpls)); } 
-            if(j.memo !== undefined) { document.getElementById('memo-area').value = j.memo; localStorage.setItem('grandMemo', j.memo); } 
+        for(let f of files) {
+            const text = await f.text();
+            const doc = new DOMParser().parseFromString(text, 'text/html'); 
+            const links = Array.from(doc.querySelectorAll('a')).map(a => ({ name: a.innerText.trim() || 'NoName', url: a.href })).filter(l => l.url.startsWith('http') || l.url.startsWith('file')); 
             
-            // 統合画面の復元
-            if(j.multiFrames) {
-                document.getElementById('multi-grid').innerHTML = '';
-                j.multiFrames.forEach(f => {
-                    createMultiFrame(f.url, f.name, f.scale, f.width, f.height);
-                });
-            }
+            if(links.length === 0) continue;
 
-            renderLinks(); renderExcel(); renderTemplates(); save(); 
-            alert("全データの復元完了！統合画面も元通りだよ！"); 
-        }; 
-        r.readAsText(e.target.files[0]); 
+            if(!key) {
+                // キーがない場合は今まで通り
+                data.push({ title: "統合:" + f.name, subs: [{ title: "抽出リンク", subs: [{ title: "インポート", links: links }] }] });
+            } else {
+                document.getElementById('importFile').disabled = true;
+                alert(`AIが ${f.name} のリンクを自動で振り分けます。少し時間がかかります...`);
+                
+                try {
+                    const structure = data.map((g, gi) => ({ gIdx: gi, title: g.title, subs: g.subs.map((s, si) => ({ sIdx: si, title: s.title, subs: s.subs.map((ss, ssi) => ({ ssIdx: ssi, title: ss.title })) })) }));
+                    const promptStr = `以下のJSONは現在のリンク集のカテゴリ構造です：\n${JSON.stringify(structure)}\n\n次のリンクのリストを分類してください：\n${JSON.stringify(links)}\n\n各リンク（配列のインデックス番号 0 から ${links.length-1}）について、最も内容が適している大グループ(gIdx)、中項目(sIdx)、小項目(ssIdx)を判定してください。適する場所がない場合は gIdx を -1 にしてください。\n以下の形式の純粋なJSON配列のみを出力してください（Markdown記法は不要）。\n[{"index":0, "gIdx": 0, "sIdx": 0, "ssIdx": 0}, {"index":1, "gIdx": -1, "sIdx": -1, "ssIdx": -1}]`;
+                    
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: promptStr }] }] }) });
+                    const resData = await res.json(); 
+                    if(resData.error) throw new Error(resData.error.message);
+                    
+                    let reply = resData.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '').trim(); 
+                    const mappings = JSON.parse(reply);
+                    
+                    let unmappedLinks = [];
+                    mappings.forEach(m => {
+                        const link = links[m.index];
+                        if(!link) return;
+                        if(m.gIdx >= 0 && data[m.gIdx] && data[m.gIdx].subs[m.sIdx] && data[m.gIdx].subs[m.sIdx].subs[m.ssIdx]) {
+                            data[m.gIdx].subs[m.sIdx].subs[m.ssIdx].links.push(link);
+                        } else {
+                            unmappedLinks.push(link);
+                        }
+                    });
+                    
+                    if(unmappedLinks.length > 0) {
+                        data.push({ title: "統合(未分類):" + f.name, subs: [{ title: "抽出リンク", subs: [{ title: "インポート", links: unmappedLinks }] }] });
+                    }
+                    alert("AIによる自動振り分けが完了しました！");
+                } catch(err) {
+                    console.error(err);
+                    data.push({ title: "統合:" + f.name, subs: [{ title: "抽出リンク", subs: [{ title: "インポート", links: links }] }] });
+                    alert("AI振り分けに失敗したため、そのままインポートしました。");
+                }
+                document.getElementById('importFile').disabled = false;
+            }
+        }
+        renderLinks(); save(); closeAllModals(); 
     }
+    
+    function exportJSON() { const memoVal = document.getElementById('memo-area').value; const frames = []; document.querySelectorAll('.multi-frame-item').forEach(el => { const slider = el.querySelector('.multi-scale-slider'); frames.push({ url: el.dataset.url, name: el.dataset.name, scale: slider ? slider.value : 1, width: el.style.width, height: el.style.height }); }); const blob = new Blob([JSON.stringify({data, excelData, tpls, memo: memoVal, multiFrames: frames})], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_backup.json'; a.click(); }
+    function importJSON(e) { const r = new FileReader(); r.onload = (ev) => { const j = JSON.parse(ev.target.result); if(j.data) data = j.data; if(j.excelData) excelData = j.excelData; if(j.tpls) { tpls = j.tpls; localStorage.setItem('grandTpls', JSON.stringify(tpls)); } if(j.memo !== undefined) { document.getElementById('memo-area').value = j.memo; localStorage.setItem('grandMemo', j.memo); } if(j.multiFrames) { document.getElementById('multi-grid').innerHTML = ''; j.multiFrames.forEach(f => { createMultiFrame(f.url, f.name, f.scale, f.width, f.height); }); } renderLinks(); renderExcel(); renderTemplates(); save(); alert("全データの復元完了！統合画面も元通りだよ！"); }; r.readAsText(e.target.files[0]); }
 
     function gate() { const p = prompt("キーワード:"); if(p) window.open(p + ".html", "_blank"); }
     
