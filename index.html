@@ -37,9 +37,13 @@
         .nav-item { padding: 12px; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: 0.2s; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
         .nav-item:hover { background: rgba(255,255,255,0.1); }
         .nav-item.active { background: var(--primary); color: white; }
-        .group-filter-item { padding: 8px 12px 8px 30px; font-size: 0.85rem; color: #94a3b8; cursor: pointer; border-radius: 4px; white-space: nowrap; }
-        .group-filter-item:hover { color: white; }
-        .group-filter-item.active { color: #60a5fa; font-weight: bold; }
+        
+        /* フォルダ構造用CSS */
+        .group-filter-item { padding: 8px; font-size: 0.85rem; color: #cbd5e1; cursor: pointer; border-radius: 4px; white-space: nowrap; transition: 0.2s; }
+        .group-filter-item:hover { color: white; background: rgba(255,255,255,0.05); }
+        .group-filter-item.active { color: #60a5fa; font-weight: bold; background: rgba(59, 130, 246, 0.1); }
+        .folder-toggle { padding: 0 8px; color: #94a3b8; font-size: 0.75rem; transition: 0.2s; cursor: pointer; }
+        .folder-toggle:hover { color: white; }
 
         /* コンテンツエリア */
         #content { flex: 1; overflow-y: auto; padding: 25px; position: relative; scroll-behavior: smooth; }
@@ -329,6 +333,10 @@
     let attachedFile = null;
     let isEditMode = false;
     let currentFilter = 'all';
+    
+    // ★ 追加：フォルダの開閉状態を記憶するための変数
+    let expandedFolders = JSON.parse(localStorage.getItem('grandExpandedFolders')) || {};
+
     let isMemoOpen = true; 
     let isSidebarOpen = true;
 
@@ -372,13 +380,14 @@
         } else { memo.classList.add('closed'); btn.innerText = "◀ メモ"; btn.classList.remove('btn-warning'); btn.classList.add('btn-success'); }
     }
 
-    /* --- リンク集 --- */
+    /* --- リンク集 ＆ ★ フォルダ階層・検索超進化 --- */
     function renderLinks() {
         const area = document.getElementById('main-link-area');
         const filterArea = document.getElementById('filter-container');
         const term = document.getElementById('searchInput').value.toLowerCase();
         area.innerHTML = ''; filterArea.innerHTML = '';
 
+        // ■ 1. サイドバー（フォルダ構造）の描画
         const allBtn = document.createElement('div');
         allBtn.className = `group-filter-item ${currentFilter === 'all' ? 'active' : ''}`;
         allBtn.innerText = "📁 すべて表示";
@@ -386,15 +395,83 @@
         filterArea.appendChild(allBtn);
 
         data.forEach((g, gIdx) => {
-            const fBtn = document.createElement('div');
-            fBtn.className = `group-filter-item ${currentFilter === gIdx ? 'active' : ''}`;
-            fBtn.innerText = `└ ${g.title}`;
-            fBtn.onclick = () => { currentFilter = gIdx; switchTab('links', true); renderLinks(); clearBulkSelect(); };
-            filterArea.appendChild(fBtn);
+            const gId = `g-${gIdx}`;
+            const gWrap = document.createElement('div');
+            
+            const gHeader = document.createElement('div');
+            gHeader.className = `group-filter-item ${currentFilter === gId ? 'active' : ''}`;
+            gHeader.style.display = 'flex'; gHeader.style.justifyContent = 'space-between'; gHeader.style.paddingLeft = '10px';
+            
+            const gTitleWrap = document.createElement('div');
+            gTitleWrap.innerText = `📂 ${g.title}`;
+            gTitleWrap.style.flex = "1"; gTitleWrap.style.overflow = "hidden"; gTitleWrap.style.textOverflow = "ellipsis";
+            gTitleWrap.onclick = (e) => { e.stopPropagation(); currentFilter = gId; expandedFolders[gId] = true; localStorage.setItem('grandExpandedFolders', JSON.stringify(expandedFolders)); switchTab('links', true); renderLinks(); clearBulkSelect(); };
+            
+            const gToggle = document.createElement('div');
+            gToggle.innerText = expandedFolders[gId] ? '▼' : '▶';
+            gToggle.className = 'folder-toggle';
+            gToggle.onclick = (e) => { e.stopPropagation(); expandedFolders[gId] = !expandedFolders[gId]; localStorage.setItem('grandExpandedFolders', JSON.stringify(expandedFolders)); renderLinks(); };
+            
+            gHeader.appendChild(gTitleWrap);
+            if(g.subs && g.subs.length > 0) gHeader.appendChild(gToggle);
+            gWrap.appendChild(gHeader);
 
-            if (currentFilter !== 'all' && currentFilter !== gIdx) return;
+            if(expandedFolders[gId]) {
+                g.subs.forEach((s, sIdx) => {
+                    const sId = `s-${gIdx}-${sIdx}`;
+                    const sWrap = document.createElement('div');
 
-            let gHasLinks = false; // ★ 検索用フラグ
+                    const sHeader = document.createElement('div');
+                    sHeader.className = `group-filter-item ${currentFilter === sId ? 'active' : ''}`;
+                    sHeader.style.display = 'flex'; sHeader.style.justifyContent = 'space-between'; sHeader.style.paddingLeft = '25px';
+                    
+                    const sTitleWrap = document.createElement('div');
+                    sTitleWrap.innerText = `📁 ${s.title}`;
+                    sTitleWrap.style.flex = "1"; sTitleWrap.style.overflow = "hidden"; sTitleWrap.style.textOverflow = "ellipsis";
+                    sTitleWrap.onclick = (e) => { e.stopPropagation(); currentFilter = sId; expandedFolders[sId] = true; localStorage.setItem('grandExpandedFolders', JSON.stringify(expandedFolders)); switchTab('links', true); renderLinks(); clearBulkSelect(); };
+                    
+                    const sToggle = document.createElement('div');
+                    sToggle.innerText = expandedFolders[sId] ? '▼' : '▶';
+                    sToggle.className = 'folder-toggle';
+                    sToggle.onclick = (e) => { e.stopPropagation(); expandedFolders[sId] = !expandedFolders[sId]; localStorage.setItem('grandExpandedFolders', JSON.stringify(expandedFolders)); renderLinks(); };
+
+                    sHeader.appendChild(sTitleWrap);
+                    if(s.subs && s.subs.length > 0) sHeader.appendChild(sToggle);
+                    sWrap.appendChild(sHeader);
+
+                    if(expandedFolders[sId]) {
+                        s.subs.forEach((ss, ssIdx) => {
+                            const ssId = `ss-${gIdx}-${sIdx}-${ssIdx}`;
+                            const ssHeader = document.createElement('div');
+                            ssHeader.className = `group-filter-item ${currentFilter === ssId ? 'active' : ''}`;
+                            ssHeader.innerText = `📄 ${ss.title}`;
+                            ssHeader.style.paddingLeft = '40px';
+                            ssHeader.style.overflow = "hidden"; ssHeader.style.textOverflow = "ellipsis";
+                            ssHeader.onclick = (e) => { e.stopPropagation(); currentFilter = ssId; switchTab('links', true); renderLinks(); clearBulkSelect(); };
+                            sWrap.appendChild(ssHeader);
+                        });
+                    }
+                    gWrap.appendChild(sWrap);
+                });
+            }
+            filterArea.appendChild(gWrap);
+        });
+
+        // ■ 2. メイン画面の描画（ツリー・フィルター対応）
+        let fG = -1, fS = -1, fSS = -1;
+        if (typeof currentFilter === 'string' && currentFilter !== 'all') {
+            const parts = currentFilter.split('-');
+            if (parts[0] === 'g') { fG = parseInt(parts[1]); }
+            else if (parts[0] === 's') { fG = parseInt(parts[1]); fS = parseInt(parts[2]); }
+            else if (parts[0] === 'ss') { fG = parseInt(parts[1]); fS = parseInt(parts[2]); fSS = parseInt(parts[3]); }
+        } else if (typeof currentFilter === 'number') { 
+            fG = currentFilter; currentFilter = `g-${fG}`;
+        }
+
+        data.forEach((g, gIdx) => {
+            if (fG !== -1 && fG !== gIdx) return;
+
+            let gHasLinks = false; // 検索時に空のグループを隠すフラグ
 
             const gDiv = document.createElement('div');
             gDiv.className = 'group-section';
@@ -414,7 +491,9 @@
             
             const subWrap = gDiv.querySelector('.sub-container');
             g.subs.forEach((s, sIdx) => {
-                let sHasLinks = false; // ★ 検索用フラグ
+                if (fS !== -1 && fS !== sIdx) return;
+                
+                let sHasLinks = false;
 
                 const sDiv = document.createElement('div');
                 sDiv.className = 'sub-group';
@@ -434,7 +513,9 @@
 
                 const ssWrap = sDiv.querySelector('.ss-container');
                 s.subs.forEach((ss, ssIdx) => {
-                    let ssHasLinks = false; // ★ 検索用フラグ
+                    if (fSS !== -1 && fSS !== ssIdx) return;
+                    
+                    let ssHasLinks = false;
 
                     const ssDiv = document.createElement('div');
                     ssDiv.className = 'sub-sub-group';
@@ -455,10 +536,10 @@
                     const grid = ssDiv.querySelector('.link-grid');
                     ss.links.forEach((l, lIdx) => {
                         const match = (!term || l.name.toLowerCase().includes(term) || l.url.toLowerCase().includes(term));
-                        if (!match && !isEditMode) return; // ★ 検索にヒットしないリンクを隠す
+                        if (!match && !isEditMode) return;
 
                         ssHasLinks = true;
-
+                        
                         const cardWrap = document.createElement('div');
                         cardWrap.style.position = 'relative'; 
                         let icon = `https://www.google.com/s2/favicons?domain=${l.url.split('/')[2]}`;
@@ -479,7 +560,7 @@
                         grid.appendChild(cardWrap);
                     });
                     
-                    // ★ 検索時、該当リンクがない空のグループは表示しない
+                    // 検索時、リンクがないグループは非表示にして見やすく！
                     if (term && !ssHasLinks && !isEditMode) return; 
                     sHasLinks = true;
                     ssWrap.appendChild(ssDiv);
@@ -493,6 +574,7 @@
             if (term && !gHasLinks && !isEditMode) return; 
             area.appendChild(gDiv);
         });
+
         if(isEditMode) setupSortable();
     }
 
@@ -513,11 +595,7 @@
         }
         
         const multiGrid = document.getElementById('multi-grid');
-        if(multiGrid) {
-            Sortable.create(multiGrid, {
-                handle: '.multi-handle', animation: 150
-            });
-        }
+        if(multiGrid) { Sortable.create(multiGrid, { handle: '.multi-handle', animation: 150 }); }
     }
 
     function handleLinkSelect() {
@@ -556,7 +634,34 @@
         save(); renderLinks(); closeAllModals(); clearBulkSelect(); alert("移動が完了したよ！");
     }
 
-    function addGroup() { const newGroup = {title:"新グループ", subs:[]}; if(currentFilter === 'all') { data.push(newGroup); } else { data.splice(currentFilter + 1, 0, newGroup); currentFilter = currentFilter + 1; } renderLinks(); save(); }
+    function addGroup() { 
+        const newGroup = {title:"新グループ", subs:[]}; 
+        if (typeof currentFilter === 'string' && currentFilter !== 'all') {
+            const parts = currentFilter.split('-');
+            const gIdx = parseInt(parts[1]);
+            data.splice(gIdx + 1, 0, newGroup); 
+            currentFilter = `g-${gIdx + 1}`; 
+        } else {
+            data.push(newGroup); 
+        }
+        renderLinks(); save(); 
+    }
+
+    async function autoCategorizeLink() {
+        const key = document.getElementById('geminiApiKey').value;
+        if(!key) return alert("「🤖 Gemini司令室」タブで先にAPIキーを設定してね！");
+        const url = prompt("追加したいURLを入力してね:"); if(!url) return; const name = prompt("リンクの名前(サイト名)を入力してね:"); if(!name) return;
+        const btn = document.getElementById('ai-organize-btn'); const orgText = btn.innerText; btn.innerText = "⏳ AIが分類中..."; btn.disabled = true;
+
+        try {
+            const structure = data.map((g, gi) => ({ gIdx: gi, title: g.title, subs: g.subs.map((s, si) => ({ sIdx: si, title: s.title, subs: s.subs.map((ss, ssi) => ({ ssIdx: ssi, title: ss.title })) })) }));
+            const promptStr = `以下のJSONは現在のリンク集のカテゴリ構造です：\n${JSON.stringify(structure)}\n新しいリンク（名前: "${name}", URL: "${url}"）を追加します。最も内容が適している大グループ(gIdx)、中項目(sIdx)、小項目(ssIdx)のインデックス番号を判定し、以下の形式の純粋なJSONのみを出力してください。\n{"gIdx": 0, "sIdx": 0, "ssIdx": 0}`;
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: promptStr }] }] }) });
+            const resData = await res.json(); if(resData.error) throw new Error(resData.error.message);
+            let reply = resData.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '').trim(); const result = JSON.parse(reply);
+            if(data[result.gIdx] && data[result.gIdx].subs[result.sIdx] && data[result.gIdx].subs[result.sIdx].subs[result.ssIdx]) { data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].links.push({name: name, url: url}); save(); renderLinks(); alert(`「${data[result.gIdx].title} > ${data[result.gIdx].subs[result.sIdx].title} > ${data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].title}」に分類したよ！`); } else { throw new Error("該当するカテゴリが見つからなかったよ"); }
+        } catch(err) { alert("分類に失敗しちゃった。手動で追加してね！ エラー: " + err.message); } btn.innerText = orgText; btn.disabled = false;
+    }
 
     function dragToIntegration(e) { const url = e.currentTarget.dataset.url; const name = e.currentTarget.dataset.name; e.dataTransfer.setData('application/json', JSON.stringify({ url: url, name: name })); }
     function allowDrop(e) { e.preventDefault(); e.currentTarget.style.background = 'rgba(37, 99, 235, 0.1)'; }
@@ -565,10 +670,8 @@
         const container = document.getElementById('multi-grid');
         const frameWrap = document.createElement('div');
         frameWrap.className = 'resizable-frame multi-frame-item';
-        frameWrap.dataset.url = url;
-        frameWrap.dataset.name = name;
-        if(width) frameWrap.style.width = width;
-        if(height) frameWrap.style.height = height;
+        frameWrap.dataset.url = url; frameWrap.dataset.name = name;
+        if(width) frameWrap.style.width = width; if(height) frameWrap.style.height = height;
         
         frameWrap.innerHTML = `
             <div style="background:#f1f5f9; padding:5px 8px; font-size:0.8rem; font-weight:bold; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
@@ -586,63 +689,33 @@
         container.appendChild(frameWrap);
     }
 
-    function handleDrop(e) {
-        e.preventDefault(); e.currentTarget.style.background = '';
-        try {
-            const info = JSON.parse(e.dataTransfer.getData('application/json'));
-            createMultiFrame(info.url, info.name);
-            switchTab('multi');
-        } catch(err) {}
-    }
-    
-    function clearMultiGrid() {
-        if(confirm("統合画面のウィンドウをすべて閉じますか？")) {
-            document.getElementById('multi-grid').innerHTML = '';
-        }
-    }
+    function handleDrop(e) { e.preventDefault(); e.currentTarget.style.background = ''; try { const info = JSON.parse(e.dataTransfer.getData('application/json')); createMultiFrame(info.url, info.name); switchTab('multi'); } catch(err) {} }
+    function clearMultiGrid() { if(confirm("統合画面のウィンドウをすべて閉じますか？")) { document.getElementById('multi-grid').innerHTML = ''; } }
 
     function exportMultiJSON() {
-        const frames = [];
-        document.querySelectorAll('.multi-frame-item').forEach(el => {
-            const slider = el.querySelector('.multi-scale-slider');
-            frames.push({ url: el.dataset.url, name: el.dataset.name, scale: slider ? slider.value : 1, width: el.style.width, height: el.style.height });
-        });
-        const blob = new Blob([JSON.stringify({multiFrames: frames})], {type: 'application/json'});
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'multi_screen_backup.json'; a.click();
+        const frames = []; document.querySelectorAll('.multi-frame-item').forEach(el => { const slider = el.querySelector('.multi-scale-slider'); frames.push({ url: el.dataset.url, name: el.dataset.name, scale: slider ? slider.value : 1, width: el.style.width, height: el.style.height }); });
+        const blob = new Blob([JSON.stringify({multiFrames: frames})], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'multi_screen_backup.json'; a.click();
     }
 
     function importMultiJSON(e) {
-        const r = new FileReader(); r.onload = (ev) => {
-            try {
-                const j = JSON.parse(ev.target.result);
-                if(j.multiFrames) {
-                    document.getElementById('multi-grid').innerHTML = ''; 
-                    j.multiFrames.forEach(f => { createMultiFrame(f.url, f.name, f.scale, f.width, f.height); });
-                    alert("統合画面を完全に復元したよ！");
-                } else { alert("統合画面のデータが見つからなかったよ。"); }
-            } catch(err) { alert("読み込みに失敗しました。"); } e.target.value = '';
-        }; r.readAsText(e.target.files[0]);
+        const r = new FileReader(); r.onload = (ev) => { try { const j = JSON.parse(ev.target.result); if(j.multiFrames) { document.getElementById('multi-grid').innerHTML = ''; j.multiFrames.forEach(f => { createMultiFrame(f.url, f.name, f.scale, f.width, f.height); }); alert("統合画面を完全に復元したよ！"); } else { alert("統合画面のデータが見つからなかったよ。"); } } catch(err) { alert("読み込みに失敗しました。"); } e.target.value = ''; }; r.readAsText(e.target.files[0]);
     }
 
-    function toggleEditMode() { 
-        isEditMode = !isEditMode; 
-        document.body.classList.toggle('edit-mode'); 
-        document.getElementById('editBtn').innerText = isEditMode ? "✅ 終了" : "✏️ 編集"; 
-        document.getElementById('add-group-btn-wrap').style.display = isEditMode ? 'flex' : 'none'; 
-        if(!isEditMode) clearBulkSelect();
-        renderLinks(); 
-    }
+    function toggleEditMode() { isEditMode = !isEditMode; document.body.classList.toggle('edit-mode'); document.getElementById('editBtn').innerText = isEditMode ? "✅ 終了" : "✏️ 編集"; document.getElementById('add-group-btn-wrap').style.display = isEditMode ? 'flex' : 'none'; if(!isEditMode) clearBulkSelect(); renderLinks(); }
     
     function addSub(g) { data[g].subs.push({title:"新中項目", subs:[]}); renderLinks(); save(); }
     function addSSub(g,s) { data[g].subs[s].subs.push({title:"新小項目", links:[]}); renderLinks(); save(); }
     function addLink(g,s,ss) { data[g].subs[s].subs[ss].links.push({name:"新規", url:"https://"}); renderLinks(); save(); }
-    function del(type, g, s, ss, l) { if(!confirm("消去？")) return; if(type==='g') { data.splice(g,1); if(currentFilter===g) currentFilter='all'; } else if(type==='s') data[g].subs.splice(s,1); else if(type==='ss') data[g].subs[s].subs.splice(ss,1); else if(type==='l') data[g].subs[s].subs[ss].links.splice(l,1); renderLinks(); save(); }
-
-    async function shortenUrl() {
-        const url = document.getElementById('shorten-input').value; if(!url) return alert('URLを入力してね！');
-        try { const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`); const data = await res.json(); if(data.shorturl) { document.getElementById('shorten-result').value = data.shorturl; } else { alert('短縮に失敗しました。'); } } catch(e) { alert('通信エラーが発生したよ。'); }
+    function del(type, g, s, ss, l) { 
+        if(!confirm("消去？")) return; 
+        if(type==='g') { data.splice(g,1); currentFilter='all'; } 
+        else if(type==='s') { data[g].subs.splice(s,1); currentFilter='all'; } 
+        else if(type==='ss') { data[g].subs[s].subs.splice(ss,1); currentFilter='all'; } 
+        else if(type==='l') { data[g].subs[s].subs[ss].links.splice(l,1); } 
+        renderLinks(); save(); 
     }
 
+    async function shortenUrl() { const url = document.getElementById('shorten-input').value; if(!url) return alert('URLを入力してね！'); try { const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`); const data = await res.json(); if(data.shorturl) { document.getElementById('shorten-result').value = data.shorturl; } else { alert('短縮に失敗しました。'); } } catch(e) { alert('通信エラーが発生したよ。'); } }
     function generateQR() { const text = document.getElementById('qr-gen-input').value; const img = document.getElementById('qr-gen-img'); const placeholder = document.getElementById('qr-gen-placeholder'); if(!text) { img.style.display = 'none'; placeholder.style.display = 'inline'; return; } img.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(text)}`; img.style.display = 'block'; placeholder.style.display = 'none'; }
     function readQR(e) { const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = (event) => { const img = new Image(); img.onload = () => { const canvas = document.getElementById('qr-canvas'); const ctx = canvas.getContext('2d'); canvas.width = img.width; canvas.height = img.height; ctx.drawImage(img, 0, 0, img.width, img.height); const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); const code = jsQR(imageData.data, imageData.width, imageData.height); if(code) { document.getElementById('qr-read-result').value = code.data; } else { document.getElementById('qr-read-result').value = 'QRコードが見つかりませんでした。'; } }; img.src = event.target.result; }; reader.readAsDataURL(file); }
 
@@ -679,25 +752,7 @@
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: parts }] }) }); const resData = await res.json(); document.getElementById(loadingId).remove(); removeAttachedFile(); if(resData.error) throw new Error(resData.error.message); const reply = resData.candidates[0].content.parts[0].text.replace(/\n/g, '<br>'); msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:var(--panel); border:1px solid var(--border); padding:10px 15px; border-radius:15px; display:inline-block; max-width:80%; line-height:1.5;">${reply}</span></div>`; } catch(e) { if(document.getElementById(loadingId)) document.getElementById(loadingId).remove(); msgArea.innerHTML += `<div style="text-align:left; margin:10px 0;"><span style="background:#fee2e2; color:red; padding:10px; border-radius:10px; display:inline-block;">エラー: ${e.message}</span></div>`; } msgArea.scrollTop = msgArea.scrollHeight;
     }
 
-    async function autoCategorizeLink() {
-        const key = document.getElementById('geminiApiKey').value;
-        if(!key) return alert("「🤖 Gemini司令室」タブで先にAPIキーを設定してね！");
-        const url = prompt("追加したいURLを入力してね:"); if(!url) return; const name = prompt("リンクの名前(サイト名)を入力してね:"); if(!name) return;
-        const btn = document.getElementById('ai-organize-btn'); const orgText = btn.innerText; btn.innerText = "⏳ AIが分類中..."; btn.disabled = true;
-
-        try {
-            const structure = data.map((g, gi) => ({ gIdx: gi, title: g.title, subs: g.subs.map((s, si) => ({ sIdx: si, title: s.title, subs: s.subs.map((ss, ssi) => ({ ssIdx: ssi, title: ss.title })) })) }));
-            const promptStr = `以下のJSONは現在のリンク集のカテゴリ構造です：\n${JSON.stringify(structure)}\n新しいリンク（名前: "${name}", URL: "${url}"）を追加します。最も内容が適している大グループ(gIdx)、中項目(sIdx)、小項目(ssIdx)のインデックス番号を判定し、以下の形式の純粋なJSONのみを出力してください。\n{"gIdx": 0, "sIdx": 0, "ssIdx": 0}`;
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ parts: [{ text: promptStr }] }] }) });
-            const resData = await res.json(); if(resData.error) throw new Error(resData.error.message);
-            let reply = resData.candidates[0].content.parts[0].text.trim().replace(/```json/g, '').replace(/```/g, '').trim(); const result = JSON.parse(reply);
-            if(data[result.gIdx] && data[result.gIdx].subs[result.sIdx] && data[result.gIdx].subs[result.sIdx].subs[result.ssIdx]) { data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].links.push({name: name, url: url}); save(); renderLinks(); alert(`「${data[result.gIdx].title} > ${data[result.gIdx].subs[result.sIdx].title} > ${data[result.gIdx].subs[result.sIdx].subs[result.ssIdx].title}」に分類したよ！`); } else { throw new Error("該当するカテゴリが見つからなかったよ"); }
-        } catch(err) { alert("分類に失敗しちゃった。手動で追加してね！ エラー: " + err.message); } btn.innerText = orgText; btn.disabled = false;
-    }
-
-    // ★ テンプレ機能のアップデート (文字入力時のチラつき解消 ＆ {{}}ボタン追加)
     function addTemplate() { tpls.push({title:"定型文", color:"", body:"【{{項目}}】内容"}); renderTemplates(); localStorage.setItem('grandTpls', JSON.stringify(tpls)); }
-    
     async function generateTplWithAI(e) {
         const key = document.getElementById('geminiApiKey').value; const promptStr = document.getElementById('aiTplInput').value; if(!promptStr) { alert("どんなテンプレを作りたいか入力してね！(例: 会議の議事録)"); return; } if(!key) { alert("APIキーを「🤖Gemini司令室」タブで先に入力してね！"); return; }
         const btn = e.target.tagName === 'BUTTON' ? e.target : e.target.nextElementSibling; const orgText = btn.innerText; btn.innerText = "⏳ 作成中..."; btn.disabled = true;
@@ -711,10 +766,8 @@
             const vars = [...new Set(t.body.match(/{{(.*?)}}/g) || [])];
             let inps = vars.map(v => `<div style="margin-bottom:5px;"><input placeholder="${v.slice(2, -2)}" oninput="fillTpl(${i})" class="edit-input"></div>`).join('');
             const card = document.createElement('div'); card.className = 'sub-group'; 
-            card.style.flex = "1 1 300px";
-            if(t.color) card.style.backgroundColor = t.color;
+            card.style.flex = "1 1 300px"; if(t.color) card.style.backgroundColor = t.color;
             
-            // ★ 本文テキストエリアのoninput処理を変更し、ボタンを追加しました！
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                     <div style="display:flex; align-items:center; width:60%;">
@@ -741,50 +794,27 @@
         });
     }
 
-    // ★ テンプレの入力で画面が再描画されないようにする魔法
     function handleTplBodyChange(i, el) {
-        tpls[i].body = el.value;
-        localStorage.setItem('grandTpls', JSON.stringify(tpls));
-        
+        tpls[i].body = el.value; localStorage.setItem('grandTpls', JSON.stringify(tpls));
         const varsWrap = document.getElementById(`tpl-vars-${i}`);
         const vars = [...new Set(tpls[i].body.match(/{{(.*?)}}/g) || [])];
         const currentVars = Array.from(varsWrap.querySelectorAll('input')).map(inp => inp.placeholder);
         const newVarsStr = vars.map(v => v.slice(2, -2));
-        
         if (JSON.stringify(newVarsStr) !== JSON.stringify(currentVars)) {
-            let inps = vars.map(v => {
-                let cleanV = v.slice(2, -2);
-                return `<div style="margin-bottom:5px;"><input placeholder="${cleanV}" oninput="fillTpl(${i})" class="edit-input"></div>`;
-            }).join('');
+            let inps = vars.map(v => { let cleanV = v.slice(2, -2); return `<div style="margin-bottom:5px;"><input placeholder="${cleanV}" oninput="fillTpl(${i})" class="edit-input"></div>`; }).join('');
             varsWrap.innerHTML = inps || '<p style="font-size:0.7rem;">{{文字}} を入れると入力欄が出ます</p>';
         }
         fillTpl(i);
     }
 
-    // ★ {{}}をボタン一発で挿入する魔法
-    function insertTplVar(i) {
-        const ta = document.getElementById(`tpl-body-${i}`);
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        const text = ta.value;
-        ta.value = text.substring(0, start) + "{{}}" + text.substring(end);
-        ta.selectionStart = ta.selectionEnd = start + 2;
-        ta.focus();
-        handleTplBodyChange(i, ta);
-    }
-
-    function fillTpl(i) { 
-        let res = tpls[i].body; 
-        const inps = document.querySelectorAll(`#tpl-vars-${i} input[placeholder]`); 
-        inps.forEach(inp => res = res.replaceAll('{{' + inp.placeholder + '}}', inp.value || inp.placeholder)); 
-        document.getElementById(`out-${i}`).innerText = res; 
-    }
-    
+    function insertTplVar(i) { const ta = document.getElementById(`tpl-body-${i}`); const start = ta.selectionStart; const end = ta.selectionEnd; const text = ta.value; ta.value = text.substring(0, start) + "{{}}" + text.substring(end); ta.selectionStart = ta.selectionEnd = start + 2; ta.focus(); handleTplBodyChange(i, ta); }
+    function fillTpl(i) { let res = tpls[i].body; const inps = document.querySelectorAll(`#tpl-vars-${i} input[placeholder]`); inps.forEach(inp => res = res.replaceAll('{{' + inp.placeholder + '}}', inp.value || inp.placeholder)); document.getElementById(`out-${i}`).innerText = res; }
     function copyTpl(i, btn) { navigator.clipboard.writeText(document.getElementById(`out-${i}`).innerText).then(() => { const org = btn.innerText; btn.innerText = "✅"; setTimeout(() => btn.innerText = org, 1500); }); }
+
     function exportTplsJSON() { const blob = new Blob([JSON.stringify({tpls})], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_templates_only.json'; a.click(); }
     function importTplsJSON(e) { const r = new FileReader(); r.onload = (ev) => { try { const j = JSON.parse(ev.target.result); if(j.tpls) { tpls = tpls.concat(j.tpls); localStorage.setItem('grandTpls', JSON.stringify(tpls)); renderTemplates(); alert("テンプレートを追加したよ！"); } } catch(err) { alert("読み込みに失敗しました。"); } e.target.value = ''; }; r.readAsText(e.target.files[0]); }
 
-    // ★ AIを使ったHTMLファイルの自動振り分けインポート機能
+    // ★ AIを活用した「超スマート」HTMLインポート機能
     async function convertHTML(e) { 
         const key = document.getElementById('geminiApiKey').value;
         const files = Array.from(e.target.files);
@@ -797,7 +827,6 @@
             if(links.length === 0) continue;
 
             if(!key) {
-                // キーがない場合は今まで通り
                 data.push({ title: "統合:" + f.name, subs: [{ title: "抽出リンク", subs: [{ title: "インポート", links: links }] }] });
             } else {
                 document.getElementById('importFile').disabled = true;
@@ -820,14 +849,10 @@
                         if(!link) return;
                         if(m.gIdx >= 0 && data[m.gIdx] && data[m.gIdx].subs[m.sIdx] && data[m.gIdx].subs[m.sIdx].subs[m.ssIdx]) {
                             data[m.gIdx].subs[m.sIdx].subs[m.ssIdx].links.push(link);
-                        } else {
-                            unmappedLinks.push(link);
-                        }
+                        } else { unmappedLinks.push(link); }
                     });
                     
-                    if(unmappedLinks.length > 0) {
-                        data.push({ title: "統合(未分類):" + f.name, subs: [{ title: "抽出リンク", subs: [{ title: "インポート", links: unmappedLinks }] }] });
-                    }
+                    if(unmappedLinks.length > 0) { data.push({ title: "統合(未分類):" + f.name, subs: [{ title: "抽出リンク", subs: [{ title: "インポート", links: unmappedLinks }] }] }); }
                     alert("AIによる自動振り分けが完了しました！");
                 } catch(err) {
                     console.error(err);
@@ -841,10 +866,9 @@
     }
     
     function exportJSON() { const memoVal = document.getElementById('memo-area').value; const frames = []; document.querySelectorAll('.multi-frame-item').forEach(el => { const slider = el.querySelector('.multi-scale-slider'); frames.push({ url: el.dataset.url, name: el.dataset.name, scale: slider ? slider.value : 1, width: el.style.width, height: el.style.height }); }); const blob = new Blob([JSON.stringify({data, excelData, tpls, memo: memoVal, multiFrames: frames})], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hub_backup.json'; a.click(); }
-    function importJSON(e) { const r = new FileReader(); r.onload = (ev) => { const j = JSON.parse(ev.target.result); if(j.data) data = j.data; if(j.excelData) excelData = j.excelData; if(j.tpls) { tpls = j.tpls; localStorage.setItem('grandTpls', JSON.stringify(tpls)); } if(j.memo !== undefined) { document.getElementById('memo-area').value = j.memo; localStorage.setItem('grandMemo', j.memo); } if(j.multiFrames) { document.getElementById('multi-grid').innerHTML = ''; j.multiFrames.forEach(f => { createMultiFrame(f.url, f.name, f.scale, f.width, f.height); }); } renderLinks(); renderExcel(); renderTemplates(); save(); alert("全データの復元完了！統合画面も元通りだよ！"); }; r.readAsText(e.target.files[0]); }
+    function importJSON(e) { const r = new FileReader(); r.onload = (ev) => { const j = JSON.parse(ev.target.result); if(j.data) data = j.data; if(j.excelData) excelData = j.excelData; if(j.tpls) { tpls = j.tpls; localStorage.setItem('grandTpls', JSON.stringify(tpls)); } if(j.memo !== undefined) { document.getElementById('memo-area').value = j.memo; localStorage.setItem('grandMemo', j.memo); } if(j.multiFrames) { document.getElementById('multi-grid').innerHTML = ''; j.multiFrames.forEach(f => { createMultiFrame(f.url, f.name, f.scale, f.width, f.height); }); } renderLinks(); renderExcel(); renderTemplates(); save(); alert("全データの復元完了！"); }; r.readAsText(e.target.files[0]); }
 
     function gate() { const p = prompt("キーワード:"); if(p) window.open(p + ".html", "_blank"); }
-    
     function toggleTheme() { const t = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light'; document.documentElement.setAttribute('data-theme', t); localStorage.setItem('grandTheme', t); }
     function toggleModal(id) { document.getElementById(id).style.display='block'; document.getElementById('overlay').style.display='block'; }
     function closeAllModals() { document.querySelectorAll('.modal').forEach(m=>m.style.display='none'); document.getElementById('overlay').style.display='none'; }
