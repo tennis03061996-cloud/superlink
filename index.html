@@ -31,12 +31,12 @@
         @media(min-width: 600px) { #clock { display: block; } }
         .search-bar input { width: 100%; max-width: 250px; padding: 8px; border-radius: 4px; border: none; background: rgba(255,255,255,0.1); color: white; }
         
-        main { display: flex; flex: 1; overflow: hidden; }
+        main { display: flex; flex: 1; overflow: hidden; position: relative; }
         
         /* サイドバー */
-        #sidebar { width: 230px; background: #1e293b; color: white; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid var(--border); flex-shrink: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        #sidebar.closed { width: 0; padding: 0; border: none; overflow: hidden; opacity: 0; }
-        .nav-item { padding: 12px; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: 0.2s; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+        #sidebar { width: 230px; background: #1e293b; color: white; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-sizing: border-box; }
+        #sidebar.closed { width: 0 !important; padding: 0 !important; border: none !important; overflow: hidden !important; opacity: 0 !important; }
+        .nav-item { padding: 12px; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: 0.2s; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; }
         .nav-item:hover { background: rgba(255,255,255,0.1); }
         .nav-item.active { background: var(--primary); color: white; }
         
@@ -48,7 +48,7 @@
         .folder-toggle:hover { color: white; }
 
         /* コンテンツエリア */
-        #content { flex: 1; overflow-y: auto; padding: 25px; position: relative; scroll-behavior: smooth; }
+        #content { flex: 1; overflow-y: auto; padding: 25px; position: relative; scroll-behavior: smooth; min-width: 300px; }
         .view-panel { display: none; }
         .view-panel.active { display: block; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -110,9 +110,14 @@
         .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
 
         /* 右側メモ＆ToDo欄 (メモ枠が下まで広がるようにflex設定) */
-        #right-sidebar { width: 280px; background: #fffdeb; border-left: 1px solid #e5e7eb; padding: 20px; display: flex; flex-direction: column; z-index: 50; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; }
-        #right-sidebar.closed { width: 0; padding: 0; border: none; overflow: hidden; opacity: 0; }
+        #right-sidebar { width: 280px; background: #fffdeb; padding: 20px; display: flex; flex-direction: column; z-index: 50; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; box-sizing: border-box; }
+        #right-sidebar.closed { width: 0 !important; padding: 0 !important; border: none !important; overflow: hidden !important; opacity: 0 !important; }
         
+        /* ★ サイドバーリサイズ用の「つまみ」 */
+        .resizer { width: 6px; background: transparent; cursor: col-resize; flex-shrink: 0; z-index: 60; transition: background 0.2s; }
+        .resizer:hover, .resizer.dragging { background: var(--primary); opacity: 0.5; }
+        .no-transition { transition: none !important; } /* リサイズ中のラグ防止用 */
+
         /* ToDoアイテム用スタイル */
         .todo-item { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.6); padding: 5px 8px; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.2s; }
         .todo-item:hover { background: rgba(255,255,255,0.9); }
@@ -152,6 +157,7 @@
 </header>
 
 <main>
+    <!-- 左サイドバー -->
     <div id="sidebar">
         <div class="nav-item active" onclick="switchTab('links')"><span>🔗</span> リンク集</div>
         <div id="filter-container"></div>
@@ -163,6 +169,9 @@
         <div class="nav-item" onclick="switchTab('diff')"><span>⚖️</span> 文章比較</div>
         <div class="nav-item" onclick="switchTab('gemini')"><span>🤖</span> Gemini司令室</div>
     </div>
+    
+    <!-- ★ 左リサイザー（つまみ） -->
+    <div id="left-resizer" class="resizer" style="border-right: 1px solid var(--border);"></div>
 
     <div id="content">
         <!-- 1. リンク集 -->
@@ -295,6 +304,9 @@
         </div>
     </div>
 
+    <!-- ★ 右リサイザー（つまみ） -->
+    <div id="right-resizer" class="resizer" style="border-left: 1px solid #e5e7eb;"></div>
+
     <!-- 右側：タスク管理 ＆ 複数メモ帳 -->
     <div id="right-sidebar">
         <!-- ToDo リスト -->
@@ -381,7 +393,7 @@
     let excelData = JSON.parse(localStorage.getItem('grandExcel')) || Array(10).fill().map(() => Array(10).fill(''));
     let tpls = JSON.parse(localStorage.getItem('grandTpls')) || [];
     
-    // ★ ToDoリストと複数メモ帳のデータ
+    // ToDoリストと複数メモ帳のデータ
     let todos = JSON.parse(localStorage.getItem('grandTodos')) || [];
     let memos = JSON.parse(localStorage.getItem('grandMemos')) || [];
     
@@ -400,7 +412,7 @@
     let isEditMode = false;
     let currentFilter = 'all';
     
-    // ★ 右側サイドバーと各リストの開閉状態
+    // 右側サイドバーと各リストの開閉状態
     let isSidebarOpen = true;
     let isMemoOpen = true; 
     let isTodoListOpen = JSON.parse(localStorage.getItem('grandTodoToggle')) !== false; 
@@ -425,11 +437,79 @@
 
         if(window.innerWidth <= 768) { toggleMemo(); toggleSidebar(); }
         setupExtraSortables();
+        initResizers(); // ★ サイドバーの幅調整機能を初期化
     }
 
     function save() { localStorage.setItem('grandHubData', JSON.stringify(data)); }
 
-    /* ★ リストとメモ帳の個別折り畳み機能 */
+    /* ★ サイドバーリサイズ（つまみ）機能 */
+    function initResizers() {
+        const leftResizer = document.getElementById('left-resizer');
+        const sidebar = document.getElementById('sidebar');
+        const rightResizer = document.getElementById('right-resizer');
+        const rightSidebar = document.getElementById('right-sidebar');
+
+        // 保存された幅があれば復元する
+        const savedLeftWidth = localStorage.getItem('grandLeftWidth');
+        if(savedLeftWidth) sidebar.style.width = savedLeftWidth + 'px';
+        const savedRightWidth = localStorage.getItem('grandRightWidth');
+        if(savedRightWidth) rightSidebar.style.width = savedRightWidth + 'px';
+
+        let isResizingLeft = false;
+        let isResizingRight = false;
+
+        leftResizer.addEventListener('mousedown', (e) => {
+            isResizingLeft = true;
+            sidebar.classList.add('no-transition'); // ドラッグ中のラグを無くす
+            document.body.style.cursor = 'col-resize';
+            leftResizer.classList.add('dragging');
+            e.preventDefault(); // テキスト選択防止
+        });
+
+        rightResizer.addEventListener('mousedown', (e) => {
+            isResizingRight = true;
+            rightSidebar.classList.add('no-transition');
+            document.body.style.cursor = 'col-resize';
+            rightResizer.classList.add('dragging');
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizingLeft && !isResizingRight) return;
+            
+            if (isResizingLeft) {
+                let newWidth = e.clientX;
+                if(newWidth < 100) newWidth = 100; // 最小幅
+                if(newWidth > 600) newWidth = 600; // 最大幅
+                sidebar.style.width = newWidth + 'px';
+            }
+            
+            if (isResizingRight) {
+                let newWidth = document.body.clientWidth - e.clientX;
+                if(newWidth < 150) newWidth = 150;
+                if(newWidth > 800) newWidth = 800;
+                rightSidebar.style.width = newWidth + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if(isResizingLeft) {
+                isResizingLeft = false;
+                sidebar.classList.remove('no-transition');
+                leftResizer.classList.remove('dragging');
+                localStorage.setItem('grandLeftWidth', sidebar.style.width.replace('px',''));
+            }
+            if(isResizingRight) {
+                isResizingRight = false;
+                rightSidebar.classList.remove('no-transition');
+                rightResizer.classList.remove('dragging');
+                localStorage.setItem('grandRightWidth', rightSidebar.style.width.replace('px',''));
+            }
+            document.body.style.cursor = '';
+        });
+    }
+
+    /* リストとメモ帳の個別折り畳み機能 */
     function toggleTodoList() {
         isTodoListOpen = !isTodoListOpen;
         localStorage.setItem('grandTodoToggle', JSON.stringify(isTodoListOpen));
@@ -453,6 +533,14 @@
             const item = document.createElement('div');
             item.className = 'todo-item';
             
+            // ★ ToDo用のドラッグハンドル（編集モード時のみ表示される）
+            const handle = document.createElement('span');
+            handle.className = 'drag-handle todo-handle';
+            handle.innerText = '⠿';
+            handle.style.marginRight = '5px';
+            handle.style.color = '#94a3b8';
+            handle.style.cursor = 'grab';
+            
             const checkBtn = document.createElement('button');
             checkBtn.className = 'btn btn-sm ' + (t.checked ? 'btn-success' : 'btn-ghost');
             checkBtn.style.padding = '2px 6px'; checkBtn.innerText = t.checked ? '✅' : '⬜️';
@@ -464,9 +552,25 @@
             input.value = t.text; input.style.textDecoration = t.checked ? 'line-through' : 'none'; input.style.color = t.checked ? '#94a3b8' : 'inherit';
             input.oninput = (e) => { todos[i].text = e.target.value; saveTodos(); };
             
-            item.appendChild(checkBtn); item.appendChild(input); list.appendChild(item);
+            item.appendChild(handle);
+            item.appendChild(checkBtn); 
+            item.appendChild(input); 
+            list.appendChild(item);
+        });
+
+        // ★ ToDoリストにSortable（並べ替え魔法）を適用
+        Sortable.create(list, {
+            handle: '.todo-handle',
+            animation: 150,
+            onEnd: (e) => {
+                const item = todos.splice(e.oldIndex, 1)[0];
+                todos.splice(e.newIndex, 0, item);
+                saveTodos();
+                renderTodos(); // 値を同期
+            }
         });
     }
+    
     function addTodo() {
         const input = document.getElementById('newTodoInput'); const text = input.value.trim();
         if(text) { todos.push({ text: text, checked: false }); saveTodos(); renderTodos(); input.value = ''; }
@@ -778,7 +882,13 @@
 
     function setupExtraSortables() {
         const tplContainer = document.getElementById('tpl-container');
-        if(tplContainer) { Sortable.create(tplContainer, { handle: '.tpl-handle', animation: 150, onEnd: (e) => { const item = tpls.splice(e.oldIndex, 1)[0]; tpls.splice(e.newIndex, 0, item); localStorage.setItem('grandTpls', JSON.stringify(tpls)); } }); }
+        if(tplContainer) {
+            Sortable.create(tplContainer, {
+                handle: '.tpl-handle', animation: 150,
+                onEnd: (e) => { const item = tpls.splice(e.oldIndex, 1)[0]; tpls.splice(e.newIndex, 0, item); localStorage.setItem('grandTpls', JSON.stringify(tpls)); }
+            });
+        }
+        
         const multiGrid = document.getElementById('multi-grid');
         if(multiGrid) { Sortable.create(multiGrid, { handle: '.multi-handle', animation: 150 }); }
     }
@@ -821,20 +931,32 @@
 
     function addGroup() { 
         const newGroup = {title:"新グループ", subs:[]}; 
-        if (typeof currentFilter === 'string' && currentFilter !== 'all') { const parts = currentFilter.split('-'); const gIdx = parseInt(parts[1]); data.splice(gIdx + 1, 0, newGroup); currentFilter = `g-${gIdx + 1}`; } 
-        else { data.push(newGroup); } renderLinks(); save(); 
+        if (typeof currentFilter === 'string' && currentFilter !== 'all') {
+            const parts = currentFilter.split('-');
+            const gIdx = parseInt(parts[1]);
+            data.splice(gIdx + 1, 0, newGroup); 
+            currentFilter = `g-${gIdx + 1}`; 
+        } else {
+            data.push(newGroup); 
+        }
+        renderLinks(); save(); 
     }
 
     function dragToIntegration(e) { const url = e.currentTarget.dataset.url; const name = e.currentTarget.dataset.name; e.dataTransfer.setData('application/json', JSON.stringify({ url: url, name: name })); }
     function allowDrop(e) { e.preventDefault(); e.currentTarget.style.background = 'rgba(37, 99, 235, 0.1)'; }
     
     function createMultiFrame(url, name, scale = 1, width = '', height = '') {
-        const container = document.getElementById('multi-grid'); const frameWrap = document.createElement('div'); frameWrap.className = 'resizable-frame multi-frame-item'; frameWrap.dataset.url = url; frameWrap.dataset.name = name;
+        const container = document.getElementById('multi-grid');
+        const frameWrap = document.createElement('div');
+        frameWrap.className = 'resizable-frame multi-frame-item';
+        frameWrap.dataset.url = url; frameWrap.dataset.name = name;
         if(width) frameWrap.style.width = width; if(height) frameWrap.style.height = height;
+        
         frameWrap.innerHTML = `
             <div style="background:#f1f5f9; padding:5px 8px; font-size:0.8rem; font-weight:bold; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border);">
                 <div style="display:flex; align-items:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:50%;">
-                    <span class="drag-handle multi-handle" style="margin-right:5px; cursor:grab; color:#94a3b8;">⠿</span><span>${name}</span>
+                    <span class="drag-handle multi-handle" style="margin-right:5px; cursor:grab; color:#94a3b8;">⠿</span>
+                    <span>${name}</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:5px;">
                     <input type="range" class="multi-scale-slider" min="0.3" max="2" step="0.1" value="${scale}" oninput="const ifr=this.parentElement.parentElement.nextElementSibling; ifr.style.transform='scale('+this.value+')'; ifr.style.width=(100/this.value)+'%'; ifr.style.height=(100/this.value)+'%';" style="width:50px;">
@@ -853,11 +975,20 @@
         const frames = []; document.querySelectorAll('.multi-frame-item').forEach(el => { const slider = el.querySelector('.multi-scale-slider'); frames.push({ url: el.dataset.url, name: el.dataset.name, scale: slider ? slider.value : 1, width: el.style.width, height: el.style.height }); });
         const blob = new Blob([JSON.stringify({multiFrames: frames})], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'multi_screen_backup.json'; a.click();
     }
+
     function importMultiJSON(e) {
         const r = new FileReader(); r.onload = (ev) => { try { const j = JSON.parse(ev.target.result); if(j.multiFrames) { document.getElementById('multi-grid').innerHTML = ''; j.multiFrames.forEach(f => { createMultiFrame(f.url, f.name, f.scale, f.width, f.height); }); alert("統合画面を完全に復元したよ！"); } else { alert("統合画面のデータが見つからなかったよ。"); } } catch(err) { alert("読み込みに失敗しました。"); } e.target.value = ''; }; r.readAsText(e.target.files[0]);
     }
 
-    function toggleEditMode() { isEditMode = !isEditMode; document.body.classList.toggle('edit-mode'); document.getElementById('editBtn').innerText = isEditMode ? "✅ 終了" : "✏️ 編集"; document.getElementById('add-group-btn-wrap').style.display = isEditMode ? 'flex' : 'none'; if(!isEditMode) clearBulkSelect(); renderLinks(); }
+    function toggleEditMode() { 
+        isEditMode = !isEditMode; 
+        document.body.classList.toggle('edit-mode'); 
+        document.getElementById('editBtn').innerText = isEditMode ? "✅ 終了" : "✏️ 編集"; 
+        document.getElementById('add-group-btn-wrap').style.display = isEditMode ? 'flex' : 'none'; 
+        if(!isEditMode) clearBulkSelect(); 
+        renderLinks(); 
+        renderTodos(); // ToDoにも編集モード(ドラッグハンドル表示)を反映させるため
+    }
     
     function addSub(g) { data[g].subs.push({title:"新中項目", subs:[]}); renderLinks(); save(); }
     function addSSub(g,s) { data[g].subs[s].subs.push({title:"新小項目", links:[]}); renderLinks(); save(); }
