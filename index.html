@@ -113,10 +113,10 @@
         #right-sidebar { width: 280px; background: #fffdeb; padding: 20px; display: flex; flex-direction: column; z-index: 50; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); flex-shrink: 0; box-sizing: border-box; }
         #right-sidebar.closed { width: 0 !important; padding: 0 !important; border: none !important; overflow: hidden !important; opacity: 0 !important; }
         
-        /* ★ サイドバーリサイズ用の「つまみ」 */
+        /* サイドバーリサイズ用の「つまみ」 */
         .resizer { width: 6px; background: transparent; cursor: col-resize; flex-shrink: 0; z-index: 60; transition: background 0.2s; }
         .resizer:hover, .resizer.dragging { background: var(--primary); opacity: 0.5; }
-        .no-transition { transition: none !important; } /* リサイズ中のラグ防止用 */
+        .no-transition { transition: none !important; }
 
         /* ToDoアイテム用スタイル */
         .todo-item { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.6); padding: 5px 8px; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.2s; }
@@ -124,7 +124,7 @@
 
         /* モーダル */
         #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 999; }
-        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: var(--panel); padding: 30px; border-radius: 15px; z-index: 1000; width: 450px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); max-width: 90vw; }
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: var(--panel); padding: 30px; border-radius: 15px; z-index: 1000; width: 450px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); max-width: 90vw; max-height: 90vh; overflow-y: auto; }
         
         /* Gemini 司令室 */
         #gemini-chat-area::-webkit-scrollbar { width: 6px; }
@@ -170,7 +170,7 @@
         <div class="nav-item" onclick="switchTab('gemini')"><span>🤖</span> Gemini司令室</div>
     </div>
     
-    <!-- ★ 左リサイザー（つまみ） -->
+    <!-- 左リサイザー（つまみ） -->
     <div id="left-resizer" class="resizer" style="border-right: 1px solid var(--border);"></div>
 
     <div id="content">
@@ -304,7 +304,7 @@
         </div>
     </div>
 
-    <!-- ★ 右リサイザー（つまみ） -->
+    <!-- 右リサイザー（つまみ） -->
     <div id="right-resizer" class="resizer" style="border-left: 1px solid #e5e7eb;"></div>
 
     <!-- 右側：タスク管理 ＆ 複数メモ帳 -->
@@ -360,16 +360,48 @@
 </div>
 
 <div id="overlay" onclick="closeAllModals()"></div>
+
+<!-- ★ 設定モーダル (ここにGitHub連携機能を追加！) -->
 <div id="configModal" class="modal">
     <h3>🛠 システム設定</h3>
+    
+    <!-- ローカル用保存機能 -->
     <div style="display:flex; flex-direction:column; gap:10px;">
-        <button class="btn btn-primary" onclick="exportJSON()">💾 全データの保存(JSON)</button>
-        <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()">📂 データの復元(JSON)</button>
+        <button class="btn btn-primary" onclick="exportJSON()">💾 パソコンに保存(JSON)</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()">📂 パソコンから復元(JSON)</button>
         <input type="file" id="importFile" style="display:none" onchange="importJSON(event)">
-        <hr style="margin:10px 0; border:0; border-top:1px solid var(--border);">
-        <p style="font-size:0.8rem; font-weight:bold; margin:0;">自作のリンク集(HTML)を統合する:</p>
-        <input type="file" multiple accept=".html" onchange="convertHTML(event)">
     </div>
+    
+    <!-- ★ GitHubクラウドセーブ機能 -->
+    <hr style="margin:20px 0 15px 0; border:0; border-top:1px solid var(--border);">
+    <h4 style="margin:0 0 10px 0; color:#2563eb;">☁️ GitHubクラウドセーブ</h4>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+        <div>
+            <label style="font-size:0.75rem; font-weight:bold;">1. Personal Access Token (repo権限)</label>
+            <input type="password" id="ghToken" class="edit-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+        </div>
+        <div>
+            <label style="font-size:0.75rem; font-weight:bold;">2. リポジトリ名 (例: yamada/my-hub)</label>
+            <input type="text" id="ghRepo" class="edit-input" placeholder="username/repository">
+        </div>
+        <div>
+            <label style="font-size:0.75rem; font-weight:bold;">3. 保存ファイル名</label>
+            <input type="text" id="ghPath" class="edit-input" placeholder="backup.json" value="backup.json">
+        </div>
+        <div style="display:flex; gap:10px; margin-top:5px;">
+            <button id="btnGhSave" class="btn btn-primary" style="flex:1; background:#10b981;" onclick="saveToGitHub()">☁️ GitHubへ保存</button>
+            <button id="btnGhLoad" class="btn btn-ghost" style="flex:1;" onclick="loadFromGitHub()">☁️ GitHubから復元</button>
+        </div>
+        <p style="font-size:0.7rem; color:#64748b; margin:0;">※設定はブラウザに自動記憶されます。初回は「GitHubへ保存」でファイルを作成してください。</p>
+    </div>
+
+    <!-- HTMLインポート機能 -->
+    <hr style="margin:20px 0 15px 0; border:0; border-top:1px solid var(--border);">
+    <div style="display:flex; flex-direction:column; gap:10px;">
+        <p style="font-size:0.8rem; font-weight:bold; margin:0;">自作のリンク集(HTML)を統合する:</p>
+        <input type="file" multiple accept=".html" class="edit-input" onchange="convertHTML(event)">
+    </div>
+
     <button class="btn btn-danger" style="width:100%; margin-top:25px;" onclick="closeAllModals()">閉じる</button>
 </div>
 
@@ -421,6 +453,12 @@
     function init() {
         document.documentElement.setAttribute('data-theme', localStorage.getItem('grandTheme') || 'light');
         document.getElementById('geminiApiKey').value = localStorage.getItem('grandGeminiKey') || '';
+        
+        // ★ GitHub設定の読み込み
+        document.getElementById('ghToken').value = localStorage.getItem('grandGhToken') || '';
+        document.getElementById('ghRepo').value = localStorage.getItem('grandGhRepo') || '';
+        document.getElementById('ghPath').value = localStorage.getItem('grandGhPath') || 'backup.json';
+
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('ja-JP'); }, 1000);
         
         renderLinks(); renderExcel(); renderTemplates(); renderTodos(); renderMemos(); 
@@ -437,12 +475,143 @@
 
         if(window.innerWidth <= 768) { toggleMemo(); toggleSidebar(); }
         setupExtraSortables();
-        initResizers(); // ★ サイドバーの幅調整機能を初期化
+        initResizers(); // サイドバーの幅調整機能を初期化
     }
 
     function save() { localStorage.setItem('grandHubData', JSON.stringify(data)); }
 
-    /* ★ サイドバーリサイズ（つまみ）機能 */
+    /* --- ★ GitHub連携機能（日本語対応Base64変換含む） --- */
+    function utf8_to_b64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
+    function b64_to_utf8(str) { return decodeURIComponent(escape(window.atob(str))); }
+
+    async function saveToGitHub() {
+        const token = document.getElementById('ghToken').value;
+        const repo = document.getElementById('ghRepo').value;
+        const path = document.getElementById('ghPath').value;
+        
+        if(!token || !repo || !path) return alert("GitHubの「Token」「リポジトリ名」「ファイル名」をすべて入力してね！");
+        
+        const btn = document.getElementById('btnGhSave');
+        const orgText = btn.innerText;
+        btn.innerText = "⏳ 宇宙へ送信中...";
+        btn.disabled = true;
+        
+        try {
+            // 現在の全データを集める
+            const frames = []; 
+            document.querySelectorAll('.multi-frame-item').forEach(el => { 
+                const slider = el.querySelector('.multi-scale-slider'); 
+                frames.push({ url: el.dataset.url, name: el.dataset.name, scale: slider ? slider.value : 1, width: el.style.width, height: el.style.height }); 
+            }); 
+            const payload = JSON.stringify({data, excelData, tpls, memos, todos, multiFrames: frames});
+            const content = utf8_to_b64(payload); // 日本語も安全にBase64化
+            
+            const url = `https://api.github.com/repos/${repo}/contents/${path}`;
+            const headers = {
+                'Authorization': `token ${token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            };
+            
+            // すでにファイルがある場合は sha (ファイルのID) が必要なので、まずGETで確認する
+            let sha = null;
+            const getRes = await fetch(url, { headers });
+            if(getRes.ok) {
+                const getJson = await getRes.json();
+                sha = getJson.sha;
+            }
+            
+            const body = {
+                message: "Dynamic Hub からの自動バックアップ 🚀",
+                content: content
+            };
+            if(sha) body.sha = sha; // 上書きの場合はshaをセット
+            
+            // PUTリクエストで保存
+            const putRes = await fetch(url, { method: 'PUT', headers, body: JSON.stringify(body) });
+            
+            if(!putRes.ok) throw new Error((await putRes.json()).message);
+            
+            alert("GitHubクラウドへの保存が完了したよ！✨");
+            
+            // 次回のために設定をブラウザに保存
+            localStorage.setItem('grandGhToken', token);
+            localStorage.setItem('grandGhRepo', repo);
+            localStorage.setItem('grandGhPath', path);
+            
+        } catch(e) {
+            alert("保存エラー: " + e.message + "\n（Tokenの権限やリポジトリ名が正しいか確認してね！）");
+        }
+        btn.innerText = orgText;
+        btn.disabled = false;
+    }
+
+    async function loadFromGitHub() {
+        const token = document.getElementById('ghToken').value;
+        const repo = document.getElementById('ghRepo').value;
+        const path = document.getElementById('ghPath').value;
+        
+        if(!token || !repo || !path) return alert("GitHubの「Token」「リポジトリ名」「ファイル名」をすべて入力してね！");
+        
+        const btn = document.getElementById('btnGhLoad');
+        const orgText = btn.innerText;
+        btn.innerText = "⏳ 宇宙から受信中...";
+        btn.disabled = true;
+        
+        try {
+            const url = `https://api.github.com/repos/${repo}/contents/${path}`;
+            const headers = {
+                'Authorization': `token ${token}`,
+                'Accept': 'application/vnd.github.v3+json'
+            };
+            
+            const res = await fetch(url, { headers });
+            if(!res.ok) throw new Error((await res.json()).message);
+            
+            const jsonRes = await res.json();
+            const payloadStr = b64_to_utf8(jsonRes.content); // Base64から日本語に戻す
+            const j = JSON.parse(payloadStr);
+            
+            // データを変数に反映
+            if(j.data) data = j.data; 
+            if(j.excelData) excelData = j.excelData; 
+            if(j.tpls) { tpls = j.tpls; localStorage.setItem('grandTpls', JSON.stringify(tpls)); } 
+            
+            // メモの復元処理
+            if(j.memos) { 
+                memos = j.memos; localStorage.setItem('grandMemos', JSON.stringify(memos)); 
+                currentMemoId = memos.length > 0 ? memos[0].id : null; 
+            } else if(j.memo !== undefined) { 
+                memos = [{id: Date.now(), title: 'メインメモ', content: j.memo}]; 
+                localStorage.setItem('grandMemos', JSON.stringify(memos)); 
+                currentMemoId = memos[0].id; 
+            } 
+            
+            if(j.todos) { todos = j.todos; localStorage.setItem('grandTodos', JSON.stringify(todos)); } 
+            if(j.multiFrames) { 
+                document.getElementById('multi-grid').innerHTML = ''; 
+                j.multiFrames.forEach(f => { createMultiFrame(f.url, f.name, f.scale, f.width, f.height); }); 
+            } 
+            
+            renderLinks(); renderExcel(); renderTemplates(); renderTodos(); renderMemos(); save();
+            
+            // 次回のために設定をブラウザに保存
+            localStorage.setItem('grandGhToken', token);
+            localStorage.setItem('grandGhRepo', repo);
+            localStorage.setItem('grandGhPath', path);
+            
+            alert("GitHubクラウドからの復元が完了したよ！🚀");
+            closeAllModals(); // 完了したらモーダルを閉じる
+            
+        } catch(e) {
+            alert("読込エラー: " + e.message + "\n（ファイルが存在しないか、Tokenが間違っているかも？）");
+        }
+        btn.innerText = orgText;
+        btn.disabled = false;
+    }
+
+
+    /* サイドバーリサイズ（つまみ）機能 */
     function initResizers() {
         const leftResizer = document.getElementById('left-resizer');
         const sidebar = document.getElementById('sidebar');
@@ -533,7 +702,7 @@
             const item = document.createElement('div');
             item.className = 'todo-item';
             
-            // ★ ToDo用のドラッグハンドル（編集モード時のみ表示される）
+            // ToDo用のドラッグハンドル
             const handle = document.createElement('span');
             handle.className = 'drag-handle todo-handle';
             handle.innerText = '⠿';
@@ -558,7 +727,6 @@
             list.appendChild(item);
         });
 
-        // ★ ToDoリストにSortable（並べ替え魔法）を適用
         Sortable.create(list, {
             handle: '.todo-handle',
             animation: 150,
@@ -566,7 +734,7 @@
                 const item = todos.splice(e.oldIndex, 1)[0];
                 todos.splice(e.newIndex, 0, item);
                 saveTodos();
-                renderTodos(); // 値を同期
+                renderTodos(); 
             }
         });
     }
@@ -987,7 +1155,7 @@
         document.getElementById('add-group-btn-wrap').style.display = isEditMode ? 'flex' : 'none'; 
         if(!isEditMode) clearBulkSelect(); 
         renderLinks(); 
-        renderTodos(); // ToDoにも編集モード(ドラッグハンドル表示)を反映させるため
+        renderTodos();
     }
     
     function addSub(g) { data[g].subs.push({title:"新中項目", subs:[]}); renderLinks(); save(); }
